@@ -1,20 +1,16 @@
 /**
  * ============================================================
- *  ESTADO DE LA APLICACIÓN
+ *  ESTADO DE LA APLICACIÓN (SEGURO)
  * ------------------------------------------------------------
- *  Acá vive el "estado" (todos los datos del usuario: ingresos,
- *  gastos, categorías, ahorros, etc.) y las funciones para
- *  leerlo/guardarlo en localStorage. También quedan declaradas
- *  las variables globales "de trabajo" que usa la interfaz
- *  (qué se está editando en este momento, qué color quedó
- *  seleccionado, etc.).
+ *  El estado ya no se carga automáticamente. Se mantiene en 
+ *  null hasta que el usuario ingresa la clave maestra.
  * ============================================================
  */
 
-// Estado completo de la app. Se carga una sola vez al iniciar.
-var estado = cargarEstado();
+var estado = null;
+var masterPassword = null; // Mantenemos la clave en memoria RAM por sesión
 
-// --- Variables de trabajo de la interfaz (no se guardan en disco) ---
+// Variables de trabajo de la interfaz
 var colorSeleccionado = paleta[0];
 var iconoSeleccionado = iconos[0];
 var categoriaAEditar = null;
@@ -29,60 +25,84 @@ var avisoIngresoDescartado = false;
 var depuracionDesbloqueada = false;
 
 /**
- * Lee el estado guardado en localStorage y lo "repara"/completa
- * con cualquier dato nuevo que se haya agregado en versiones
- * más recientes de Saldo (migraciones suaves), para que usuarios
- * con datos viejos no pierdan información al actualizar la app.
+ * Intenta descifrar la bóveda. Si es la primera vez o si los 
+ * datos estaban en texto plano (JSON viejo), los migra y los cifra.
  */
-function cargarEstado() {
+async function desbloquearAplicacion(password) {
   try {
-    const guardado = JSON.parse(localStorage.getItem(CLAVE_ALMACENAMIENTO));
-    if (!guardado) return structuredClone(estadoPorDefecto);
+    const guardado = localStorage.getItem(CLAVE_ALMACENAMIENTO);
+    let datosEnCrudo = null;
 
-    const gastos = (guardado.expenses || [])
+    if (!guardado) {
+      // 1. Primera instalación: No hay datos en el equipo
+      datosEnCrudo = structuredClone(estadoPorDefecto);
+    } else if (guardado.trim().startsWith("{")) {
+      // 2. MIGRACIÓN: Datos antiguos en texto plano
+      datosEnCrudo = JSON.parse(guardado);
+    } else {
+      // 3. Flujo Seguro: Intentamos abrir el candado criptográfico
+      datosEnCrudo = await SaldoCrypto.descifrarEstado(guardado, password);
+      if (!datosEnCrudo) return false; // CLAVE INCORRECTA
+    }
+
+    // Reparación y fusión de compatibilidad (Tu lógica original intacta)
+    const gastos = (datosEnCrudo.expenses || [])
       .map(item => item.recurring && !item.frequency ? { ...item, frequency: "daily", weekday: null } : item)
       .map(item => item.recurring && item.frequency === "monthly" && !item.monthlyDay && typeof item.recurringDate === "string"
-        ? { ...item, monthlyDay: Number(item.recurringDate.slice(8, 10)) }
-        : item)
+        ? { ...item, monthlyDay: Number(item.recurringDate.slice(8, 10)) } : item)
       .map(item => item.recurring ? { ...item, isProjected: item.isProjected !== false } : item);
 
-    const categorias = [...(guardado.categories || [])];
+    const categorias = [...(datosEnCrudo.categories || [])];
     categoriasPorDefecto.forEach(categoria => { if (!categorias.some(item => item.id === categoria.id)) categorias.push({ ...categoria }); });
     gastos.forEach(item => { if (item.recurring && !item.recurringType) item.recurringType = "expense"; });
 
-    return {
+    estado = {
       ...estadoPorDefecto,
-      ...guardado,
+      ...datosEnCrudo,
       backupVersion: 2,
-      onboardingComplete: guardado.onboardingComplete ?? Number(guardado.income) > 0,
+      onboardingComplete: datosEnCrudo.onboardingComplete ?? Number(datosEnCrudo.income) > 0,
       categories: categorias,
       expenses: gastos,
-      incomeHistory: guardado.incomeHistory || [],
-      recurringConfirmations: guardado.recurringConfirmations || {},
-      recurringHistory: guardado.recurringHistory || [],
-      expenseHistory: guardado.expenseHistory || [],
-      incomeNotice: guardado.incomeNotice || "",
-      darkMode: Boolean(guardado.darkMode),
-      currentCycleIncome: guardado.currentCycleIncome == null ? null : Number(guardado.currentCycleIncome),
-      testCycleOverride: guardado.testCycleOverride || null,
-      dateMode: guardado.dateMode === "debug" ? "debug" : "system",
-      debugDate: guardado.debugDate || null,
-      lastCycleStart: guardado.lastCycleStart || null,
-      savingsBalance: Number(guardado.savingsBalance || 0),
-      savingsHistory: guardado.savingsHistory || [],
-      savingsMovements: guardado.savingsMovements || [],
-      savingsGoals: guardado.savingsGoals || [],
-      collectiveEvents: guardado.collectiveEvents || [],
-      collectiveDraft: guardado.collectiveDraft && Array.isArray(guardado.collectiveDraft.people) && Array.isArray(guardado.collectiveDraft.expenses)
-        ? guardado.collectiveDraft
-        : structuredClone(estadoPorDefecto.collectiveDraft)
+      incomeHistory: datosEnCrudo.incomeHistory || [],
+      recurringConfirmations: datosEnCrudo.recurringConfirmations || {},
+      recurringHistory: datosEnCrudo.recurringHistory || [],
+      expenseHistory: datosEnCrudo.expenseHistory || [],
+      incomeNotice: datosEnCrudo.incomeNotice || "",
+      darkMode: Boolean(datosEnCrudo.darkMode),
+      currentCycleIncome: datosEnCrudo.currentCycleIncome == null ? null : Number(datosEnCrudo.currentCycleIncome),
+      testCycleOverride: datosEnCrudo.testCycleOverride || null,
+      dateMode: datosEnCrudo.dateMode === "debug" ? "debug" : "system",
+      debugDate: datosEnCrudo.debugDate || null,
+      lastCycleStart: datosEnCrudo.lastCycleStart || null,
+      savingsBalance: Number(datosEnCrudo.savingsBalance || 0),
+      savingsHistory: datosEnCrudo.savingsHistory || [],
+      savingsMovements: datosEnCrudo.savingsMovements || [],
+      savingsGoals: datosEnCrudo.savingsGoals || [],
+      collectiveEvents: datosEnCrudo.collectiveEvents || [],
+      debts: Array.isArray(datosEnCrudo.debts) ? datosEnCrudo.debts : [],
+      collectiveDraft: datosEnCrudo.collectiveDraft && Array.isArray(datosEnCrudo.collectiveDraft.people) && Array.isArray(datosEnCrudo.collectiveDraft.expenses)
+        ? datosEnCrudo.collectiveDraft : structuredClone(estadoPorDefecto.collectiveDraft)
     };
-  } catch {
-    return structuredClone(estadoPorDefecto);
+
+    masterPassword = password;
+    
+    // Forzamos guardado inmediato. Si venía en plano, quedará encriptado para siempre.
+    guardarEstado(); 
+    return true;
+
+  } catch (error) {
+    console.error("Error crítico en la bóveda:", error);
+    return false;
   }
 }
 
-// Persiste el estado completo en localStorage.
-function guardarEstado() {
-  localStorage.setItem(CLAVE_ALMACENAMIENTO, JSON.stringify(estado));
+/**
+ * Encripta el objeto en segundo plano antes de enviarlo al disco duro.
+ */
+async function guardarEstado() {
+  if (!estado || !masterPassword) return;
+  const cifrado = await SaldoCrypto.cifrarEstado(estado, masterPassword);
+  if (cifrado) {
+    localStorage.setItem(CLAVE_ALMACENAMIENTO, cifrado);
+  }
 }

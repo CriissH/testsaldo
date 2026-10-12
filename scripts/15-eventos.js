@@ -3,15 +3,7 @@
  *  EVENTOS
  * ------------------------------------------------------------
  *  Acá se conectan todos los elementos del HTML con las
- *  funciones de negocio de los demás módulos. Está ordenado en
- *  bloques temáticos: clics delegados en document, formularios
- *  (submit), y cambios de campos (change/input).
- *
- *  Este módulo NO dibuja nada ni calcula nada por sí mismo: solo
- *  escucha al usuario y llama a las funciones correspondientes.
- *  El arranque de la aplicación (el primer renderizar()) está en
- *  16-iniciar.js, para separar "conectar los eventos" de
- *  "arrancar la app".
+ *  funciones de negocio de los demás módulos.
  * ============================================================
  */
 
@@ -24,6 +16,20 @@ document.addEventListener("click", evento => {
   const enlace = evento.target.closest("[data-view-link]");
   if (enlace) navegar(enlace.dataset.viewLink);
 
+  const categoriaGastos = evento.target.closest("[data-category-expenses]");
+  if (categoriaGastos && !evento.target.closest("button")) {
+    abrirGastosDeCategoria(categoriaGastos.dataset.categoryExpenses);
+    return;
+  }
+
+  const filtroRecurrente = evento.target.closest("[data-recurring-mobile-filter]");
+  if (filtroRecurrente) {
+    filtroRecurrentesMovil = filtroRecurrente.dataset.recurringMobileFilter;
+    document.querySelectorAll("[data-recurring-mobile-filter]").forEach(tab => tab.classList.toggle("active", tab === filtroRecurrente));
+    renderizarTodosLosRecurrentes();
+    return;
+  }
+
   const cerrar = evento.target.closest("[data-close-modal]");
   if (cerrar) cerrarModal(cerrar.dataset.closeModal);
 
@@ -31,20 +37,20 @@ document.addEventListener("click", evento => {
   if (abrirOtroModal) abrirModal(abrirOtroModal.dataset.openModal);
 
   if (evento.target.id === "new-expense-button" || evento.target.id === "new-expense-button-2") {
+    document.getElementById("expense-form").reset();
     completarSelectorDeCategorias();
     document.getElementById("expense-modal-title").textContent = "Registrar gasto";
-    document.getElementById("recurring-input").checked = false;
-    document.getElementById("recurring-is-projected").checked = true;
     document.getElementById("date-input").value = hoyISO();
-    document.getElementById("recurring-monthly-day").value = "";
-    document.getElementById("recurring-options").hidden = true;
-    document.getElementById("recurring-weekday-label").hidden = true;
-    document.getElementById("recurring-monthly-date-label").hidden = true;
-    document.getElementById("date-input").required = true;
+    document.getElementById("recurring-is-projected").checked = true;
+    if (typeof cambiarPestanaGasto === "function") cambiarPestanaGasto("unico");
     abrirModal("expense-modal");
   }
 
-  if (evento.target.id === "income-button") { actualizarFormularioIngreso(); abrirModal("income-modal"); }
+  if (evento.target.id === "income-button") {
+    document.getElementById("income-form").reset();
+    if (typeof cambiarPestanaIngreso === "function") cambiarPestanaIngreso("sumar");
+    abrirModal("income-modal");
+  }
 
   const editarRecurrente = evento.target.closest("[data-edit-recurring]");
   if (editarRecurrente) abrirEditorRecurrente(editarRecurrente.dataset.editRecurring);
@@ -55,7 +61,7 @@ document.addEventListener("click", evento => {
   const editarGasto = evento.target.closest("[data-edit-expense]");
   if (editarGasto) abrirEditorDeGasto(editarGasto.dataset.editExpense);
 
-  if (evento.target.id === "pending-banner-button") document.getElementById("recurring-bar").scrollIntoView({ behavior: "smooth", block: "end" });
+  if (evento.target.id === "pending-banner-button") navegar("recurring-all");
 
   if (evento.target.id === "income-success-dismiss") {
     avisoIngresoDescartado = true;
@@ -137,6 +143,14 @@ document.addEventListener("click", evento => {
   }
 });
 
+document.addEventListener("keydown", evento => {
+  const categoriaGastos = evento.target.closest("[data-category-expenses]");
+  if (categoriaGastos && (evento.key === "Enter" || evento.key === " ")) {
+    evento.preventDefault();
+    abrirGastosDeCategoria(categoriaGastos.dataset.categoryExpenses);
+  }
+});
+
 // Clic en "Eliminar compra" dentro de la compra colectiva.
 document.addEventListener("click", evento => {
   const eliminarCompraColectiva = evento.target.closest("[data-delete-collective-expense]");
@@ -169,77 +183,89 @@ document.addEventListener("click", evento => {
 // Cierra cualquier modal si se hace clic fuera de su contenido (en el fondo oscuro).
 window.addEventListener("click", evento => { if (evento.target.classList.contains("modal-backdrop")) cerrarModal(evento.target.id); });
 
+
 /* ---------- Formulario: nuevo gasto ---------- */
 
-document.getElementById("expense-form").addEventListener("submit", evento => {
+document.getElementById("expense-form")?.addEventListener("submit", evento => {
   evento.preventDefault();
-  const esRecurrente = document.getElementById("recurring-input").checked;
-  const frecuencia = esRecurrente ? document.getElementById("recurring-frequency").value : null;
-  const fechaGasto = esRecurrente && frecuencia !== "monthly" ? hoyISO() : document.getElementById("date-input").value;
-  const descripcion = document.getElementById("description-input").value.trim();
-  const importe = Number(document.getElementById("amount-input").value);
+  const esRecurrente = !document.getElementById("tab-expense-recurrente").hidden;
+  
+  const descripcion = esRecurrente 
+    ? document.getElementById("recurring-desc-input").value.trim() 
+    : document.getElementById("description-input").value.trim();
+    
+  const importe = Number(esRecurrente 
+    ? document.getElementById("recurring-amount-input").value 
+    : document.getElementById("amount-input").value);
+    
+  const categoriaId = esRecurrente 
+    ? document.getElementById("recurring-category-input").value 
+    : document.getElementById("category-input").value;
 
-  if (descripcion.length < 2 || /^\d+$/.test(descripcion)) return mostrarAviso("La descripción debe tener al menos 2 caracteres y no puede ser solo numérica.", true);
+  if (descripcion.length < 2 || /^\d+$/.test(descripcion)) return mostrarAviso("La descripción debe tener al menos 2 caracteres.", true);
   if (!Number.isFinite(importe) || importe <= 0) return mostrarAviso("Indica un importe mayor que cero.", true);
 
-  const diaMensual = frecuencia === "monthly" ? Number(document.getElementById("recurring-monthly-day").value) : null;
-  if (frecuencia === "monthly" && (!diaMensual || diaMensual < 1 || diaMensual > 31)) return mostrarAviso("Indica un día de facturación entre 1 y 31.", true);
-
-  const valorFechaIngresada = document.getElementById("date-input").value;
-  if (!esRecurrente) {
+if (!esRecurrente) {
+    const valorFechaIngresada = document.getElementById("date-input").value;
     const fechaIngresada = new Date(`${valorFechaIngresada}T12:00:00`);
     if (!valorFechaIngresada || fechaIngresada < obtenerInicioCiclo() || fechaIngresada > obtenerFinCiclo()) {
       return mostrarAviso(`La fecha debe estar dentro del ciclo actual: ${formatearFecha(claveFechaCiclo(obtenerInicioCiclo()))} al ${formatearFecha(claveFechaCiclo(obtenerFinCiclo()))}.`, true);
     }
+    estado.expenses.push({
+      id: crypto.randomUUID(),
+      description: descripcion,
+      amount: importe,
+      categoryId: categoriaId,
+      date: valorFechaIngresada,
+      recurring: false,
+      recurringType: "expense",
+      isProjected: true
+    });
+  } else {
+    const frecuencia = document.getElementById("recurring-frequency-select").value;
+    let diaSemana = null;
+    
+    if (frecuencia === "semanal" || frecuencia === "weekly") {
+      const botonesActivos = document.querySelectorAll("#expense-days-container button.active");
+      if (botonesActivos.length > 0) {
+        diaSemana = Array.from(botonesActivos).map(b => Number(b.dataset.day));
+      } else {
+        diaSemana = [new Date((document.getElementById("recurring-start-date").value || hoyISO()) + "T12:00:00").getDay()];
+      }
+    }
+    
+    estado.expenses.push({
+      id: crypto.randomUUID(),
+      description: descripcion,
+      amount: importe,
+      categoryId: categoriaId,
+      date: document.getElementById("recurring-start-date").value || hoyISO(),
+      recurring: true,
+      recurringType: "expense",
+      frequency: frecuencia,
+      weekday: diaSemana,
+      monthlyDay: (frecuencia === "mensual" || frecuencia === "quincenal") ? new Date((document.getElementById("recurring-start-date").value || hoyISO()) + "T12:00:00").getDate() : null,
+      isProjected: document.getElementById("recurring-is-projected").checked
+    });
   }
-
-  estado.expenses.push({
-    id: crypto.randomUUID(),
-    description: descripcion,
-    amount: importe,
-    categoryId: document.getElementById("category-input").value,
-    date: fechaGasto,
-    recurring: esRecurrente,
-    recurringType: esRecurrente ? "expense" : null,
-    frequency: frecuencia,
-    weekday: frecuencia === "weekly" ? Number(document.getElementById("recurring-weekday").value) : null,
-    monthlyDay: diaMensual,
-    isProjected: esRecurrente ? document.getElementById("recurring-is-projected").checked : true
-  });
 
   guardarEstado();
   evento.target.reset();
   cerrarModal("expense-modal");
   renderizar();
-  mostrarAviso("Gasto guardado correctamente");
+  mostrarAviso("Movimiento guardado correctamente.");
 });
-
-// Muestra/oculta los campos según si el gasto es recurrente y con qué frecuencia.
-function actualizarCamposRecurrente(frecuencia) {
-  const esRecurrente = document.getElementById("recurring-input").checked;
-  document.getElementById("recurring-weekday-label").hidden = !esRecurrente || frecuencia !== "weekly";
-  document.getElementById("recurring-monthly-date-label").hidden = !esRecurrente || frecuencia !== "monthly";
-  document.getElementById("expense-date-label").hidden = esRecurrente;
-  document.getElementById("date-input").required = !esRecurrente;
-}
-
-document.getElementById("recurring-input").addEventListener("change", evento => {
-  document.getElementById("recurring-options").hidden = !evento.target.checked;
-  if (!evento.target.checked) document.getElementById("expense-date-label").hidden = false;
-  else actualizarCamposRecurrente(document.getElementById("recurring-frequency").value);
-});
-document.getElementById("recurring-frequency").addEventListener("change", evento => actualizarCamposRecurrente(evento.target.value));
 
 /* ---------- Proyección ---------- */
 
-document.getElementById("projection-detail-button").addEventListener("click", () => {
+document.getElementById("projection-detail-button")?.addEventListener("click", () => {
   renderizarDetalleProyeccion();
   abrirModal("projection-detail-modal");
 });
 
 /* ---------- Categorías ---------- */
 
-document.getElementById("category-form").addEventListener("submit", evento => {
+document.getElementById("category-form")?.addEventListener("submit", evento => {
   evento.preventDefault();
   const nombre = document.getElementById("category-name-input").value.trim();
   if (estado.categories.some(categoria => categoria.name.toLowerCase() === nombre.toLowerCase() && categoria.id !== categoriaAEditar)) {
@@ -262,13 +288,13 @@ document.getElementById("category-form").addEventListener("submit", evento => {
 
 /* ---------- Corrección de gastos ---------- */
 
-document.getElementById("expense-edit-reason").addEventListener("change", evento => {
+document.getElementById("expense-edit-reason")?.addEventListener("change", evento => {
   const esOtro = evento.target.value === "Otro";
   document.getElementById("expense-edit-custom-reason-label").hidden = !esOtro;
   document.getElementById("expense-edit-custom-reason").required = esOtro;
 });
 
-document.getElementById("expense-edit-form").addEventListener("submit", evento => {
+document.getElementById("expense-edit-form")?.addEventListener("submit", evento => {
   evento.preventDefault();
   if (!gastoAEditar) return;
   const razon = obtenerRazonEdicionGasto();
@@ -295,9 +321,9 @@ document.getElementById("expense-edit-form").addEventListener("submit", evento =
 
 /* ---------- Recurrente: edición ---------- */
 
-document.getElementById("recurring-edit-scope").addEventListener("change", actualizarAyudaEdicionRecurrente);
+document.getElementById("recurring-edit-scope")?.addEventListener("change", actualizarAyudaEdicionRecurrente);
 
-document.getElementById("recurring-edit-form").addEventListener("submit", evento => {
+document.getElementById("recurring-edit-form")?.addEventListener("submit", evento => {
   evento.preventDefault();
   if (!recurrenteAEditar) return;
   const importe = Number(document.getElementById("recurring-edit-amount").value);
@@ -347,11 +373,90 @@ document.getElementById("recurring-edit-form").addEventListener("submit", evento
   renderizar();
 });
 
+/* ---------- Ingresos ---------- */
+
+document.getElementById("income-form")?.addEventListener("submit", evento => {
+  evento.preventDefault();
+  
+  const isSumar = !document.getElementById("tab-income-sumar").hidden;
+  const isFijar = !document.getElementById("tab-income-fijar").hidden;
+  const isRecurrente = !document.getElementById("tab-income-recurrente").hidden;
+  
+  let importe, razon, actionType;
+
+  if (isSumar) {
+    importe = Number(document.getElementById("income-sumar-amount").value);
+    razon = document.getElementById("income-sumar-reason").value.trim() || "Ingreso extra";
+    actionType = "addition";
+  } else if (isFijar) {
+    importe = Number(document.getElementById("income-fijar-amount").value);
+    razon = document.getElementById("income-fijar-reason").value.trim() || "Ajuste manual de saldo";
+    actionType = "current";
+  } else if (isRecurrente) {
+    importe = Number(document.getElementById("income-recurrente-amount").value);
+    razon = document.getElementById("income-recurring-desc").value.trim() || "Ingreso recurrente";
+    actionType = "recurring";
+  }
+
+  if (!Number.isFinite(importe) || importe <= 0) return mostrarAviso("Indica un importe mayor a cero.", true);
+
+if (actionType === "recurring") {
+    const frecuencia = document.getElementById("income-recurring-frequency").value;
+    const startDate = document.getElementById("income-recurring-date").value || hoyISO();
+    const dateObj = new Date(startDate + "T12:00:00");
+    
+    let diaSemana = null;
+    if (frecuencia === "semanal" || frecuencia === "weekly") {
+      const botonesActivos = document.querySelectorAll("#income-days-container button.active");
+      if (botonesActivos.length > 0) {
+        diaSemana = Array.from(botonesActivos).map(b => Number(b.dataset.day));
+      } else {
+        diaSemana = [dateObj.getDay()];
+      }
+    }
+    
+    estado.expenses.push({ 
+      id: crypto.randomUUID(), 
+      description: razon, 
+      amount: importe, 
+      categoryId: estado.categories[0].id, 
+      date: startDate, 
+      recurring: true, 
+      recurringType: "income", 
+      frequency: frecuencia, 
+      weekday: diaSemana, 
+      monthlyDay: (frecuencia === "mensual" || frecuencia === "quincenal") ? dateObj.getDate() : null, 
+      isProjected: true 
+    });
+    mostrarAviso("Ingreso recurrente creado correctamente.");
+  } else {
+    const entrada = { id: crypto.randomUUID(), amount: importe, reason: razon, date: hoyISO(), cutoffDay: estado.cutoffDay, type: actionType };
+    
+    if (actionType === "current") {
+      const gastosYaCargados = gastosConfirmados().reduce((total, gasto) => total + Number(gasto.amount || 0), 0);
+      // "Fijar" define el presupuesto restante actual. Los recurrentes
+      // solo deben descontarse en la proyección, no en este saldo.
+      estado.currentCycleIncome = importe + gastosYaCargados;
+      estado.incomeNotice = `Presupuesto restante fijado en ${formatearMoneda(importe)} el ${formatearFecha(hoyISO())}. Se contemplaron ${formatearMoneda(gastosYaCargados)} de gastos ya cargados. Razón: ${razon}.`;
+      estado.incomeHistory.push(entrada);
+      mostrarAviso("Monto actual sobrescrito y fijado.");
+    } else if (actionType === "addition") {
+      estado.currentCycleIncome = ingresoActual() + importe;
+      estado.incomeNotice = `Se sumaron ${formatearMoneda(importe)} el ${formatearFecha(hoyISO())}. Razón: ${razon}.`;
+      estado.incomeHistory.push(entrada);
+      mostrarAviso("Monto sumado correctamente al saldo actual.");
+    }
+  }
+  
+  guardarEstado();
+  evento.target.reset();
+  cerrarModal("income-modal");
+  renderizar();
+});
+
 /* ---------- Compra colectiva ---------- */
 
-document.getElementById("income-action").addEventListener("change", actualizarFormularioIngreso);
-
-document.getElementById("collective-config-form").addEventListener("submit", evento => {
+document.getElementById("collective-config-form")?.addEventListener("submit", evento => {
   evento.preventDefault();
   const nombres = document.getElementById("collective-people").value.split(/\r?\n|,/).map(nombre => nombre.trim()).filter(Boolean);
   if (nombres.length < 2) return mostrarAviso("Indica al menos dos personas.", true);
@@ -366,7 +471,7 @@ document.getElementById("collective-config-form").addEventListener("submit", eve
   mostrarAviso("Participantes configurados.");
 });
 
-document.getElementById("collective-expense-form").addEventListener("submit", evento => {
+document.getElementById("collective-expense-form")?.addEventListener("submit", evento => {
   evento.preventDefault();
   const eventoColectivo = borradorColectivo();
   const importe = Number(document.getElementById("collective-expense-amount").value);
@@ -384,34 +489,38 @@ document.getElementById("collective-expense-form").addEventListener("submit", ev
   mostrarAviso("Compra colectiva agregada.");
 });
 
-document.getElementById("collective-people").addEventListener("change", () => {});
-document.getElementById("collective-receipt-button").addEventListener("click", imprimirComprobanteColectivo);
-document.getElementById("collective-reset-button").addEventListener("click", reiniciarColectivo);
+document.getElementById("collective-people")?.addEventListener("change", () => {});
+document.getElementById("collective-receipt-button")?.addEventListener("click", imprimirComprobanteColectivo);
+document.getElementById("collective-reset-button")?.addEventListener("click", reiniciarColectivo);
+document.getElementById("open-tutorial-button")?.addEventListener("click", () => { location.href = "tutorial.html?desde=app"; });
+document.getElementById("collective-save-debts-button")?.addEventListener("click", abrirModalDeudasColectivo);
+document.getElementById("collective-self")?.addEventListener("change", actualizarVistaPreviaDeudasColectivo);
+document.getElementById("collective-debts-confirm")?.addEventListener("click", confirmarDeudasColectivo);
 
 /* ---------- Ahorros ---------- */
 
-document.getElementById("deposit-savings-button").addEventListener("click", () => abrirModalDeAhorro("deposit"));
-document.getElementById("withdraw-savings-button").addEventListener("click", () => abrirModalDeAhorro("withdrawal"));
+document.getElementById("deposit-savings-button")?.addEventListener("click", () => abrirModalDeAhorro("deposit"));
+document.getElementById("withdraw-savings-button")?.addEventListener("click", () => abrirModalDeAhorro("withdrawal"));
 
-document.getElementById("new-savings-goal-button").addEventListener("click", () => {
+document.getElementById("new-savings-goal-button")?.addEventListener("click", () => {
   document.getElementById("savings-goal-form").reset();
   document.getElementById("savings-goal-modal-title").textContent = "Nueva meta";
   actualizarSugerenciaMetaDeAhorro();
   abrirModal("savings-goal-modal");
 });
 
-document.getElementById("savings-goal-target").addEventListener("input", actualizarSugerenciaMetaDeAhorro);
-document.getElementById("savings-goal-date").addEventListener("change", actualizarSugerenciaMetaDeAhorro);
+document.getElementById("savings-goal-target")?.addEventListener("input", actualizarSugerenciaMetaDeAhorro);
+document.getElementById("savings-goal-date")?.addEventListener("change", actualizarSugerenciaMetaDeAhorro);
 
-document.getElementById("savings-action").addEventListener("change", evento => {
+document.getElementById("savings-action")?.addEventListener("change", evento => {
   document.getElementById("savings-modal-title").textContent = evento.target.value === "deposit" ? "Ingresar ahorro" : "Extraer ahorro";
 });
 
-document.getElementById("savings-date-today").addEventListener("change", evento => {
+document.getElementById("savings-date-today")?.addEventListener("change", evento => {
   document.getElementById("savings-date").disabled = evento.target.checked;
 });
 
-document.getElementById("savings-form").addEventListener("submit", evento => {
+document.getElementById("savings-form")?.addEventListener("submit", evento => {
   evento.preventDefault();
   const tipo = document.getElementById("savings-action").value;
   const importe = Number(document.getElementById("savings-amount").value);
@@ -433,7 +542,7 @@ document.getElementById("savings-form").addEventListener("submit", evento => {
   mostrarAviso(tipo === "deposit" ? "Ahorro ingresado correctamente." : "Ahorro extraído correctamente.");
 });
 
-document.getElementById("savings-goal-form").addEventListener("submit", evento => {
+document.getElementById("savings-goal-form")?.addEventListener("submit", evento => {
   evento.preventDefault();
   const nombre = document.getElementById("savings-goal-name").value.trim();
   const objetivo = Number(document.getElementById("savings-goal-target").value);
@@ -461,97 +570,100 @@ document.getElementById("savings-goal-form").addEventListener("submit", evento =
   mostrarAviso("Meta de ahorro creada.");
 });
 
-/* ---------- Ingresos ---------- */
-
-document.getElementById("income-reason").addEventListener("change", evento => {
-  document.getElementById("income-custom-reason-label").hidden = evento.target.value !== "Otro";
-  document.getElementById("income-custom-reason").required = evento.target.value === "Otro";
-});
-document.getElementById("income-action").addEventListener("change", actualizarFormularioIngreso);
-document.getElementById("income-recurring-frequency").addEventListener("change", actualizarFormularioIngreso);
-
-document.getElementById("income-form").addEventListener("submit", evento => {
-  evento.preventDefault();
-  const accion = document.getElementById("income-action").value;
-  const importe = Number(document.getElementById("income-change-amount").value);
-  const razon = razonDeIngreso();
-
-  if (!importe || importe <= 0) return mostrarAviso("Indica un importe válido.", true);
-  if (accion !== "recurring" && !razon) return mostrarAviso("Selecciona o escribe una razón para el cambio.", true);
-
-  if (accion === "recurring") {
-    const frecuencia = document.getElementById("income-recurring-frequency").value;
-    const diaMensual = frecuencia === "monthly" ? Number(document.getElementById("income-recurring-monthly-day").value) : null;
-    if (frecuencia === "monthly" && (!diaMensual || diaMensual < 1 || diaMensual > 31)) return mostrarAviso("Indica un día de cobro entre 1 y 31.", true);
-    estado.expenses.push({
-      id: crypto.randomUUID(),
-      description: "Ingreso recurrente",
-      amount: importe,
-      categoryId: estado.categories[0].id,
-      date: hoyISO(),
-      recurring: true,
-      recurringType: "income",
-      frequency: frecuencia,
-      weekday: frecuencia === "weekly" ? Number(document.getElementById("income-recurring-weekday").value) : null,
-      monthlyDay: diaMensual,
-      isProjected: document.getElementById("income-recurring-is-projected").checked
-    });
-    guardarEstado();
-    cerrarModal("income-modal");
-    renderizar();
-    mostrarAviso("Ingreso recurrente creado.");
-    return;
-  }
-
-  const entrada = { id: crypto.randomUUID(), amount: importe, reason: razon, date: hoyISO(), cutoffDay: estado.cutoffDay, type: accion };
-  if (accion === "next") {
-    entrada.cutoffDay = Number(document.getElementById("income-change-cutoff").value);
-    entrada.effectiveDate = proximaFechaCiclo().toISOString().slice(0, 10);
-    estado.pendingIncome = entrada;
-    mostrarAviso("El nuevo ingreso se aplicará al próximo ciclo.");
-  } else if (accion === "current") {
-    estado.currentCycleIncome = importe;
-    estado.incomeNotice = `Este monto fue seteado el ${formatearFecha(hoyISO())}. Razón: ${razon}.`;
-    estado.incomeHistory.push(entrada);
-    mostrarAviso("Monto actual actualizado.");
-  } else {
-    estado.currentCycleIncome = ingresoActual() + importe;
-    estado.incomeNotice = `Se sumaron ${formatearMoneda(importe)} el ${formatearFecha(hoyISO())}. Razón: ${razon}.`;
-    estado.incomeHistory.push(entrada);
-    mostrarAviso("Adición aplicada al monto actual.");
-  }
-
-  guardarEstado();
-  cerrarModal("income-modal");
-  renderizar();
-});
-
 /* ---------- Bienvenida (onboarding) ---------- */
 
-document.getElementById("welcome-form").addEventListener("submit", evento => {
+// Función para alternar la vista entre Fijo y Variable en el Onboarding
+window.seleccionarTipoOnboarding = function(tipo) {
+  const cardFixed = document.getElementById('card-fixed');
+  const cardVariable = document.getElementById('card-variable');
+  const radioFixed = document.getElementById('radio-fixed');
+  const radioVariable = document.getElementById('radio-variable');
+  const dynamicContainer = document.getElementById('dynamic-fields');
+
+  if (tipo === 'fixed') {
+    cardFixed.classList.add('selected');
+    cardVariable.classList.remove('selected');
+    radioFixed.checked = true;
+    radioVariable.checked = false;
+
+    dynamicContainer.innerHTML = `
+      <div class="field-group">
+        <label>¿Cuánto recibes de ingreso neto (en mano)?</label>
+        <input type="number" id="welcome-income-input" min="0.01" step="0.01" placeholder="Ej: 250000" required />
+        <span class="field-note">Dinero real disponible tras descuentos y aportes.</span>
+      </div>
+      <div class="field-group">
+        <label>¿Qué día recibes tu ingreso?</label>
+        <input type="number" id="welcome-cutoff-input" min="1" max="31" placeholder="Ej: 5" required />
+        <span class="field-note">El ciclo de gastos se reinicia en este día de cada mes.</span>
+      </div>
+      <div class="field-group" style="margin-bottom: 0;">
+        <label>📈 Estimado de aumento mensual (%) <span style="font-weight: normal; color: var(--muted);">(Opcional)</span></label>
+        <input type="number" id="welcome-growth-input" value="0" step="0.5" />
+        <span class="field-note">Por defecto en 0%. Úsalo para proyectar aumentos en ciclos futuros.</span>
+      </div>
+    `;
+  } else {
+    cardVariable.classList.add('selected');
+    cardFixed.classList.remove('selected');
+    radioVariable.checked = true;
+    radioFixed.checked = false;
+
+    dynamicContainer.innerHTML = `
+      <div class="field-group" style="margin-bottom: 0;">
+        <label>¿Qué día del mes se reinicia tu ciclo?</label>
+        <input type="number" id="welcome-cutoff-input" min="1" max="31" placeholder="Ej: 1" required />
+        <span class="field-note">Tu presupuesto inicial arrancará en $0 y se alimentará de los ingresos manuales que cargues durante el mes.</span>
+      </div>
+    `;
+  }
+};
+
+document.getElementById("welcome-form")?.addEventListener("submit", evento => {
   evento.preventDefault();
-  estado.income = Number(document.getElementById("welcome-income-input").value);
-  estado.cutoffDay = Number(document.getElementById("welcome-cutoff-input").value);
+  
+  const esVariable = document.getElementById("radio-variable").checked;
+  const inputIngreso = document.getElementById("welcome-income-input");
+  const inputCorte = document.getElementById("welcome-cutoff-input");
+  const inputAumento = document.getElementById("welcome-growth-input");
+
+  // Si es variable, el ingreso base es 0
+  estado.income = esVariable ? 0 : Number(inputIngreso.value);
+  estado.cutoffDay = Number(inputCorte.value);
+  
+  // Guardamos las nuevas variables en el estado (útiles para futuras actualizaciones de Saldo)
+  estado.incomeType = esVariable ? "variable" : "fixed";
+  estado.estimatedGrowth = (!esVariable && inputAumento) ? (Number(inputAumento.value) || 0) : 0;
+
   estado.onboardingComplete = true;
   estado.lastCycleStart = claveFechaCiclo(obtenerInicioCiclo());
-  estado.incomeHistory.push({ id: crypto.randomUUID(), amount: estado.income, reason: "Configuración inicial", date: hoyISO(), cutoffDay: estado.cutoffDay, type: "current" });
+  
+  estado.incomeHistory.push({ 
+    id: crypto.randomUUID(), 
+    amount: estado.income, 
+    reason: "Configuración inicial", 
+    date: hoyISO(), 
+    cutoffDay: estado.cutoffDay, 
+    type: "current" 
+  });
+  
   guardarEstado();
   cerrarModal("welcome-modal");
   renderizar();
   mostrarAviso("¡Listo! Tu presupuesto ya está configurado.");
 });
 
-document.getElementById("welcome-import-button").addEventListener("click", () => document.getElementById("welcome-import-file").click());
-document.getElementById("welcome-import-file").addEventListener("change", evento => {
+document.getElementById("welcome-import-button")?.addEventListener("click", () => document.getElementById("welcome-import-file").click());
+document.getElementById("welcome-import-file")?.addEventListener("change", evento => {
   archivoImportacionBienvenida = evento.target.files[0] || null;
   const botonConfirmar = document.getElementById("welcome-import-confirm");
   document.getElementById("welcome-import-status").textContent = archivoImportacionBienvenida
-    ? `${archivoImportacionBienvenida.name} seleccionado. Confirma para restaurar los datos.`
+    ? `${archivoImportacionBienvenida.name} seleccionado. Confirma para restaurar.`
     : "Después de seleccionarlo, confirma la importación.";
   botonConfirmar.hidden = !archivoImportacionBienvenida;
   evento.target.value = "";
 });
-document.getElementById("welcome-import-confirm").addEventListener("click", () => {
+document.getElementById("welcome-import-confirm")?.addEventListener("click", () => {
   if (!archivoImportacionBienvenida) return;
   importarRespaldo(archivoImportacionBienvenida);
   archivoImportacionBienvenida = null;
@@ -560,25 +672,39 @@ document.getElementById("welcome-import-confirm").addEventListener("click", () =
 
 /* ---------- Gastos: búsqueda, filtro y estadísticas ---------- */
 
-document.getElementById("expense-search").addEventListener("input", renderizarGastos);
-document.getElementById("expense-filter").addEventListener("change", renderizarGastos);
-document.getElementById("stats-period").addEventListener("change", renderizarEstadisticas);
+document.getElementById("expense-search")?.addEventListener("input", renderizarGastos);
+document.getElementById("expense-filter")?.addEventListener("change", evento => {
+  filtroCategoriaGastos = evento.target.value;
+  renderizarGastos();
+});
+document.getElementById("stats-period")?.addEventListener("change", renderizarEstadisticas);
+document.getElementById("android-notifications-button")?.addEventListener("click", activarNotificacionesAndroid);
+document.getElementById("debug-notification-button")?.addEventListener("click", lanzarNotificacionPruebaAndroid);
+document.getElementById("export-logs-button")?.addEventListener("click", () => {
+  SaldoLogs.info("diagnostico", "Exportación solicitada desde Configuración");
+  SaldoLogs.descargar();
+  mostrarAviso("Registro de ejecución exportado.");
+});
+document.getElementById("clear-logs-button")?.addEventListener("click", () => {
+  SaldoLogs.limpiar();
+  mostrarAviso("Registro de ejecución limpiado.");
+});
 
 /* ---------- Reportes, respaldos y sistema ---------- */
 
-document.getElementById("pdf-button").addEventListener("click", () => { navegar("reports"); setTimeout(() => window.print(), 100); });
-document.getElementById("export-button").addEventListener("click", exportarRespaldo);
-document.getElementById("restore-button").addEventListener("click", () => document.getElementById("import-file").click());
-document.getElementById("import-button").addEventListener("click", () => document.getElementById("import-file").click());
-document.getElementById("import-file").addEventListener("change", evento => { if (evento.target.files[0]) importarRespaldo(evento.target.files[0]); evento.target.value = ""; });
+document.getElementById("pdf-button")?.addEventListener("click", () => { navegar("reports"); setTimeout(() => window.print(), 100); });
+document.getElementById("export-button")?.addEventListener("click", exportarRespaldo);
+document.getElementById("restore-button")?.addEventListener("click", () => document.getElementById("import-file").click());
+document.getElementById("import-button")?.addEventListener("click", () => document.getElementById("import-file").click());
+document.getElementById("import-file")?.addEventListener("change", evento => { if (evento.target.files[0]) importarRespaldo(evento.target.files[0]); evento.target.value = ""; });
 
-document.getElementById("reset-system-button").addEventListener("click", () => {
+document.getElementById("reset-system-button")?.addEventListener("click", () => {
   document.getElementById("reset-form").reset();
   document.getElementById("confirm-reset-button").disabled = true;
   abrirModal("reset-modal");
 });
 
-document.getElementById("unlock-debug-button").addEventListener("click", () => {
+document.getElementById("unlock-debug-button")?.addEventListener("click", () => {
   const clave = window.prompt("Contraseña de desarrollador");
   if (clave === "cris") {
     depuracionDesbloqueada = true;
@@ -589,15 +715,15 @@ document.getElementById("unlock-debug-button").addEventListener("click", () => {
   }
 });
 
-document.getElementById("reset-password").addEventListener("input", evento => {
+document.getElementById("reset-password")?.addEventListener("input", evento => {
   document.getElementById("confirm-reset-button").disabled = evento.target.value !== "CONFIRMAR";
 });
 
-document.getElementById("reset-form").addEventListener("submit", evento => {
+document.getElementById("reset-form")?.addEventListener("submit", evento => {
   evento.preventDefault();
   if (document.getElementById("reset-password").value !== "CONFIRMAR") return;
   localStorage.removeItem(CLAVE_ALMACENAMIENTO);
-  estado = structuredClone(estadoPorDefecto);
+  estado = clonarDatos(estadoPorDefecto);
   evento.target.reset();
   cerrarModal("reset-modal");
   navegar("dashboard");
@@ -605,15 +731,16 @@ document.getElementById("reset-form").addEventListener("submit", evento => {
   mostrarAviso("Sistema reiniciado. Comienza una nueva configuración.");
 });
 
-document.getElementById("check-update-button").addEventListener("click", () => verificarActualizacion(true, true));
+document.getElementById("check-update-button")?.addEventListener("click", () => verificarActualizacion(true, true));
 
-document.getElementById("dark-mode-toggle").addEventListener("change", evento => {
+// ESTE ES EL EVENTO DEL MODO OSCURO QUE SE HABÍA PERDIDO
+document.getElementById("dark-mode-toggle")?.addEventListener("change", evento => {
   estado.darkMode = evento.target.checked;
   guardarEstado();
   document.body.classList.toggle("dark-mode", estado.darkMode);
 });
 
-document.getElementById("advance-cycle-button").addEventListener("click", () => {
+document.getElementById("advance-cycle-button")?.addEventListener("click", () => {
   if (estado.dateMode !== "debug") return mostrarAviso("Activa la fecha DEBUG para avanzar el día.", true);
   const siguiente = fechaEfectiva();
   siguiente.setDate(siguiente.getDate() + 1);
@@ -623,14 +750,14 @@ document.getElementById("advance-cycle-button").addEventListener("click", () => 
   mostrarAviso(`Fecha DEBUG avanzada al ${formatearFecha(estado.debugDate)}.`);
 });
 
-document.getElementById("date-mode-input").addEventListener("change", evento => {
+document.getElementById("date-mode-input")?.addEventListener("change", evento => {
   estado.dateMode = evento.target.value;
   if (estado.dateMode === "debug" && !estado.debugDate) estado.debugDate = hoyISO();
   guardarEstado();
   renderizar();
 });
 
-document.getElementById("save-debug-date-button").addEventListener("click", () => {
+document.getElementById("save-debug-date-button")?.addEventListener("click", () => {
   const valor = document.getElementById("debug-date-input").value;
   if (!valor) return mostrarAviso("Selecciona una fecha DEBUG.", true);
   estado.dateMode = "debug";
@@ -642,20 +769,20 @@ document.getElementById("save-debug-date-button").addEventListener("click", () =
 
 /* ---------- Actualizaciones (Tauri) ---------- */
 
-document.getElementById("export-update-button").addEventListener("click", () => {
+document.getElementById("export-update-button")?.addEventListener("click", () => {
   exportarRespaldo();
   respaldoDeActualizacionExportado = true;
   document.getElementById("continue-update-button").disabled = false;
   mostrarAviso("Respaldo exportado. Ya puedes continuar.");
 });
 
-document.getElementById("dismiss-update-button").addEventListener("click", () => {
+document.getElementById("dismiss-update-button")?.addEventListener("click", () => {
   if (actualizacionDisponible?.version) localStorage.setItem("saldo-dismissed-update", actualizacionDisponible.version);
   cerrarModal("update-modal");
   mostrarAviso("Podrás actualizar cuando quieras desde Configuración → Actualizaciones.");
 });
 
-document.getElementById("continue-update-button").addEventListener("click", () => {
+document.getElementById("continue-update-button")?.addEventListener("click", () => {
   if (!respaldoDeActualizacionExportado || !actualizacionDisponible) return;
   const boton = document.getElementById("continue-update-button");
   boton.disabled = true;
@@ -667,4 +794,134 @@ document.getElementById("continue-update-button").addEventListener("click", () =
       boton.textContent = "2. Instalar actualización";
       mostrarAviso("No se pudo instalar la actualización. Puedes intentarlo nuevamente.", true);
     });
+});
+
+// (El indicador de scroll ahora es automático: ver 19-scroll-hint.js)
+
+/* ---------- Configuración (Cambio de Modo - A prueba de fallos) ---------- */
+
+// Escuchar cambios en vivo en el selector de modalidad (Delegado)
+document.addEventListener("change", evento => {
+  if (evento.target.id === "settings-income-type") {
+    const esVariable = evento.target.value === "variable";
+    const camposFijos = document.getElementById("settings-fixed-fields");
+    const inputIngreso = document.getElementById("income-input");
+    const labelCorte = document.getElementById("cutoff-label-text");
+    const hintCorte = document.getElementById("cutoff-hint-text");
+    
+    if (camposFijos) camposFijos.hidden = esVariable;
+    if (inputIngreso) inputIngreso.required = !esVariable;
+    
+    if (labelCorte) {
+      labelCorte.textContent = esVariable ? "Fecha de cierre o reinicio" : "Fecha de cobro";
+    }
+    if (hintCorte) {
+      hintCorte.textContent = esVariable ? "Día del mes en que arranca tu nuevo ciclo" : "Día del mes en que recibes tu ingreso";
+    }
+  }
+});
+
+/* ---------- Configuración: Cambio de Modo con Modal Estilizado ---------- */
+
+let datosPendientesConfiguracion = null;
+
+document.addEventListener("submit", evento => {
+  if (evento.target.id === "settings-form") {
+    evento.preventDefault();
+    
+    const nuevoModoEsVariable = document.getElementById("settings-income-type").value === "variable";
+    const antiguoModoEraVariable = estado.incomeType === "variable";
+    const nuevoIngreso = Number(document.getElementById("income-input").value) || 0;
+    const nuevoCorte = Number(document.getElementById("cutoff-input").value);
+
+    // CASO CLAVE: Si estaba en variable y pasa a fijo con un monto > 0
+    if (antiguoModoEraVariable && !nuevoModoEsVariable && nuevoIngreso > 0) {
+      
+      // Guardamos temporalmente los datos para usarlos cuando el usuario elija
+      datosPendientesConfiguracion = { nuevoIngreso, nuevoCorte };
+
+      // Actualizamos el texto dinámico con el monto formateado
+      const textoModal = document.getElementById("income-transition-text");
+      if (textoModal) {
+        textoModal.innerHTML = t("¿Deseas sumar los <b>{}</b> al ciclo actual de inmediato?", formatearMoneda(nuevoIngreso));
+      }
+
+      // Abrimos nuestro modal con estilo Saldo
+      abrirModal("income-transition-modal");
+      return;
+    }
+
+    // Comportamiento normal para cualquier otro cambio de configuración
+    estado.incomeType = nuevoModoEsVariable ? "variable" : "fixed";
+    estado.income = nuevoModoEsVariable ? 0 : nuevoIngreso;
+    estado.cutoffDay = nuevoCorte;
+    
+    if (nuevoModoEsVariable) {
+      estado.currentCycleIncome = null;
+    }
+    
+    guardarEstado();
+    renderizar();
+    mostrarAviso("Configuración guardada correctamente.");
+  }
+});
+
+// Botón: Sumar ahora (Aceptar)
+document.getElementById("income-transition-confirm")?.addEventListener("click", () => {
+  if (!datosPendientesConfiguracion) return;
+  const { nuevoIngreso, nuevoCorte } = datosPendientesConfiguracion;
+
+  estado.incomeType = "fixed";
+  estado.cutoffDay = nuevoCorte;
+  estado.currentCycleIncome = (estado.currentCycleIncome || 0) + nuevoIngreso;
+  estado.income = nuevoIngreso;
+  estado.incomeHistory.push({
+    id: crypto.randomUUID(),
+    amount: nuevoIngreso,
+    reason: "Cambio de modo a Fijo (Aplicado al ciclo actual)",
+    date: hoyISO(),
+    type: "addition"
+  });
+
+  guardarEstado();
+  cerrarModal("income-transition-modal");
+  renderizar();
+  mostrarAviso("Configuración guardada. Ingreso sumado al ciclo actual.");
+  datosPendientesConfiguracion = null;
+});
+
+// Botón: Aplicar en próximo ciclo (Cancelar)
+document.getElementById("income-transition-cancel")?.addEventListener("click", () => {
+  if (!datosPendientesConfiguracion) return;
+  const { nuevoIngreso, nuevoCorte } = datosPendientesConfiguracion;
+
+  // Calculamos la fecha exacta del próximo ciclo
+  const hoy = fechaEfectiva();
+  let anio = hoy.getFullYear();
+  let mes = hoy.getMonth();
+  if (hoy.getDate() >= nuevoCorte) {
+    mes += 1;
+    if (mes > 11) { mes = 0; anio += 1; }
+  }
+  const maxDias = diasDelMes(anio, mes);
+  const diaRealCorte = Math.min(nuevoCorte, maxDias);
+  const fechaProximoCorte = `${anio}-${String(mes + 1).padStart(2, "0")}-${String(diaRealCorte).padStart(2, "0")}`;
+
+  estado.incomeType = "fixed";
+  estado.cutoffDay = nuevoCorte;
+  
+  // Activamos la bandera de espera visual y programamos el pendiente oficial
+  estado.incomeWaitingForNextCycle = true;
+  estado.pendingIncome = {
+    amount: nuevoIngreso,
+    cutoffDay: nuevoCorte,
+    effectiveDate: fechaProximoCorte,
+    reason: "Nuevo ingreso base (Próximo ciclo)"
+  };
+
+  guardarEstado();
+  cerrarModal("income-transition-modal");
+  renderizar();
+  mostrarAviso(`Configuración guardada. El ingreso se aplicará el ${formatearFecha(fechaProximoCorte)}.`);
+  datosPendientesConfiguracion = null;
 });

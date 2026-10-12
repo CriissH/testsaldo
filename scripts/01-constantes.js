@@ -21,7 +21,13 @@
 var CLAVE_ALMACENAMIENTO = "saldo-expenses-v1";
 
 // Versión mostrada en Configuración y usada al chequear actualizaciones.
-var VERSION_APP = "1.0.15";
+var VERSION_APP = /Android/i.test(navigator.userAgent) ? "1.0.9D" : "1.0.9";
+
+// Android WebView antiguos no exponen structuredClone.
+function clonarDatos(valor) {
+  if (typeof structuredClone === "function") return structuredClone(valor);
+  return JSON.parse(JSON.stringify(valor));
+}
 
 // Colores predefinidos para crear/editar categorías.
 var paleta = [
@@ -67,7 +73,9 @@ var estadoPorDefecto = {
   savingsMovements: [],
   savingsGoals: [],
   collectiveEvents: [],
+  debts: [],
+  collectiveSelf: "",
   collectiveDraft: { name: "", people: [], expenses: [] },
-  categories: structuredClone(categoriasPorDefecto),
+  categories: clonarDatos(categoriasPorDefecto),
   expenses: []
 };

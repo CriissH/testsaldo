@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Saldo · Tutorial</title>
+<style>
+:root{--ink:#17221d;--muted:#7b8781;--line:#e9eeeb;--paper:#f8faf9;--card:#fff;--soft:#f4f8f6;--green:#177b55;--green-dark:#0e5d40;--green-light:#e6f5ed;--orange:#ed9c54;--purple:#8b7ee7;--blue:#5c9ee8;--red:#d95f59;--shadow:0 12px 35px rgba(35,57,46,.07);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);font-size:15px}
+body.dark{--ink:#e8efe9;--muted:#8d9b93;--line:#25322b;--paper:#0f1613;--card:#16201b;--soft:#1b2722;--green-light:#173a2b;--shadow:0 12px 35px rgba(0,0,0,.3)}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--paper);color:var(--ink)}
+button,input,select{font:inherit;color:inherit}button{cursor:pointer}
+.app{display:flex;min-height:100dvh}
+.sidebar{position:sticky;top:0;width:245px;height:100vh;overflow-y:auto;background:var(--card);border-right:1px solid var(--line);padding:30px 18px 22px;display:flex;flex-direction:column;flex-shrink:0}
+.brand{display:flex;gap:11px;align-items:center;padding:0 12px;margin-bottom:44px}
+.brand-mark{width:34px;height:34px;border-radius:11px;background:var(--green);color:#fff;display:grid;place-items:center;font-weight:800;font-size:20px;box-shadow:0 6px 14px rgba(23,123,85,.2)}
+.brand strong{display:block;font-size:17px;letter-spacing:-.4px}.brand span{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.nav{display:grid;gap:6px}
+.nav-item{border:0;background:transparent;text-align:left;color:var(--muted);border-radius:10px;padding:11px 13px;display:flex;gap:13px;align-items:center;font-weight:500;transition:.2s}
+.nav-item:hover{color:var(--green);background:var(--soft)}.nav-item.active{color:var(--green);background:var(--green-light);font-weight:700}
+.nav-icon{width:19px;text-align:center;font-size:18px}
+.side-bottom{margin-top:auto;display:grid;gap:10px}
+.cycle-card{padding:14px;background:var(--soft);border-radius:12px;border:1px solid var(--line)}.cycle-card strong{display:block;margin:5px 0 2px;font-size:13px}.cycle-card span{font-size:11px;color:var(--muted)}
+.main{flex:1;min-width:0;padding:36px 48px 90px;max-width:1360px;margin:0 auto;width:100%}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:32px;gap:14px}
+.eyebrow{text-transform:uppercase;letter-spacing:1.3px;color:var(--green);font-size:10px;font-weight:800;margin:0}
+.topbar h1{font-size:29px;letter-spacing:-1px;margin:8px 0 0}
+.cycle-pill{display:inline-block;margin-top:8px;font-size:11px;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 10px}
+.btn{border:0;border-radius:9px;padding:11px 17px;font-weight:700;font-size:13px;display:inline-flex;gap:8px;align-items:center;justify-content:center;transition:.2s}
+.btn.primary{background:var(--green);color:#fff;box-shadow:0 6px 13px rgba(23,123,85,.16)}.btn.primary:hover{background:var(--green-dark)}
+.btn.secondary{background:var(--green-light);color:var(--green)}.btn.ghost{background:var(--soft);color:var(--muted)}.btn:disabled{opacity:.45;cursor:not-allowed}
+.muted{color:var(--muted);font-size:12px;margin:6px 0}
+.view{display:none}.view.on{display:block;animation:fade .25s ease}@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px;box-shadow:var(--shadow)}
+.panel h2{font-size:16px;margin:0;letter-spacing:-.3px}.ph{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.hero{background:linear-gradient(115deg,#0f6847,#21845f);border-radius:16px;color:#fff;padding:30px 35px;display:flex;align-items:center;justify-content:space-between;gap:28px;min-height:179px;box-shadow:0 14px 28px rgba(16,99,69,.14)}
+.hero .eyebrow{color:#a8dbc1}.remaining{font-weight:800;font-size:43px;letter-spacing:-2px;margin:10px 0 3px}.hero .sub{color:#c2e2d2;font-size:12px;margin:0}
+.hero-progress{margin-top:20px;max-width:380px}.track{height:9px;border-radius:9px;background:rgba(255,255,255,.2);overflow:hidden}.track span{display:block;height:100%;border-radius:9px;background:#b9ebce;transition:width .5s}
+.plabels{display:flex;justify-content:space-between;color:#c2e2d2;font-size:11px;margin-top:9px}
+.projection{min-width:215px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:18px 20px}
+.projection .eyebrow{color:#dbeee4}.projection strong{display:block;font-size:27px;letter-spacing:-.8px;margin:10px 0 6px}.projection p{margin:0;font-size:11px;color:#cfeadf;line-height:1.45}
+.grid2{display:grid;grid-template-columns:1.1fr .9fr;gap:22px;margin-top:22px}
+.chart{display:flex;align-items:center;gap:34px;margin:24px 5px 6px}
+.donut{height:170px;width:170px;border-radius:50%;background:var(--line);position:relative;flex-shrink:0}
+.hole{position:absolute;inset:29px;background:var(--card);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center}.hole strong{font-size:16px}.hole span{font-size:10px;color:var(--muted)}
+.legend{display:grid;gap:11px;min-width:0;flex:1}.legend-row{display:flex;align-items:center;gap:8px;font-size:12px}.legend-row span:last-child{color:var(--muted);margin-left:auto;padding-left:12px}.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.row{display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}
+.avatar{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:14px;flex-shrink:0}
+.info{flex:1;min-width:0}.info strong{font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.info span{font-size:10px;color:var(--muted)}
+.val{font-size:12px;font-weight:700;white-space:nowrap}.pos{color:var(--green)}.neg{color:var(--red)}
+.empty{color:var(--muted);text-align:center;padding:22px 12px;font-size:12px}
+.rec-row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}.rec-row:last-child{border-bottom:0}.rec-actions{display:flex;gap:8px}
+.btn.sm{padding:8px 12px;font-size:12px}.btn.danger{background:#fff0ef;color:var(--red)}body.dark .btn.danger{background:#3a1f1d}
+.intro{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:24px;gap:14px;flex-wrap:wrap}.intro h2{font-size:27px;letter-spacing:-1px;margin:8px 0 0}
+.inp{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:10px 12px;outline:0;font-size:13px;min-width:0}.inp:focus{border-color:#8fc8a9;box-shadow:0 0 0 3px rgba(143,200,169,.25)}
+.toolbar{display:flex;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;text-align:left}
+th{color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-size:9px;font-weight:800;padding:14px 20px;border-bottom:1px solid var(--line)}
+td{padding:14px 20px;border-bottom:1px solid var(--line);font-size:12px}.ar{text-align:right}
+.tag{display:inline-flex;min-width:68px;justify-content:center;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;background:var(--green-light);color:var(--green)}.tag.rec{background:#fff0e3;color:#c46e1d}body.dark .tag.rec{background:#3c301d;color:#e8a860}
+.x{border:0;background:transparent;color:var(--muted);font-size:18px}.x:hover{color:var(--red)}
+.cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.cat-card{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:20px;text-align:left;transition:.2s}.cat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.cat-card .ci{width:39px;height:39px;border-radius:11px;display:grid;place-items:center;font-size:18px;margin-bottom:16px}.cat-card strong{display:block;font-size:14px}.cat-card span{display:block;color:var(--muted);font-size:11px;margin-top:5px}
+.stats-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:22px}
+.bars{display:grid;gap:16px;margin-top:22px}.bl{display:flex;justify-content:space-between;font-size:12px;margin-bottom:7px;gap:10px}.bt{height:8px;border-radius:8px;background:var(--line)}.bf{height:100%;border-radius:8px;transition:width .5s}
+.insight{border-bottom:1px solid var(--line);padding:0 0 13px;margin-bottom:13px}.insight:last-child{border:0;margin:0;padding:0}.insight strong{display:block;font-size:13px}.insight span{font-size:11px;color:var(--muted)}
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+.mini{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:17px}.mini span{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}.mini strong{display:block;font-size:20px;letter-spacing:-.6px;margin-top:6px}
+.goal-bar{height:9px;border-radius:9px;background:var(--line);overflow:hidden;margin:14px 0 10px}.goal-bar span{display:block;height:100%;background:var(--green);border-radius:9px}
+.col-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}.chip{background:var(--green-light);color:var(--green);font-weight:700;font-size:12px;padding:6px 12px;border-radius:999px}
+.inline-form{display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:8px;margin-top:16px}
+.group{border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-top:10px;background:var(--soft)}.group h3{margin:0 0 8px;font-size:12px}
+.tr{display:flex;justify-content:space-between;font-size:12px;padding:5px 0}
+.debt-layout{display:grid;grid-template-columns:250px 1fr;gap:22px;align-items:start}
+.dstat{border-radius:13px;padding:18px 20px;margin-bottom:14px}.dstat span{display:block;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}.dstat strong{font-size:26px;letter-spacing:-.8px}
+.dstat.g{background:rgba(23,123,85,.09);border:1px solid rgba(23,123,85,.22);color:var(--green)}.dstat.r{background:rgba(217,95,89,.09);border:1px solid rgba(217,95,89,.25);color:var(--red)}
+.dperson{border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-top:12px}.dhead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.dmove{display:flex;align-items:center;gap:10px;background:var(--soft);border-radius:9px;padding:9px 12px;margin-top:8px}
+.report-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.rcard{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.ricon{width:43px;height:43px;border-radius:12px;background:var(--green-light);color:var(--green);display:grid;place-items:center;font-size:21px;margin-bottom:10px}.rcard p{flex:1;line-height:1.5}
+.settings{max-width:740px;display:grid;gap:18px}.opt-cards{display:grid;gap:12px}
+.opt{display:flex;gap:14px;align-items:flex-start;text-align:left;border:2px solid var(--line);background:var(--card);border-radius:13px;padding:16px 18px;transition:.2s}.opt.sel{border-color:var(--green);background:var(--green-light)}
+.opt i{width:20px;height:20px;border-radius:50%;border:2px solid var(--muted);flex-shrink:0;margin-top:2px;position:relative}.opt.sel i{border-color:var(--green)}.opt.sel i:after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--green)}
+.opt strong{display:block;font-size:14px}.opt span{font-size:12px;color:var(--muted);line-height:1.45;display:block;margin-top:4px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.lbl{display:grid;gap:8px;font-size:12px;font-weight:700}.hint{font-size:10px;font-weight:400;color:var(--muted)}
+.switch-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.switch{width:44px;height:25px;border-radius:999px;background:var(--line);border:0;position:relative;transition:.2s;flex-shrink:0}.switch:after{content:"";position:absolute;top:3px;left:3px;width:19px;height:19px;border-radius:50%;background:#fff;transition:.2s}.switch.on{background:var(--green)}.switch.on:after{left:22px}
+.note-box{background:var(--soft);border:1px dashed var(--line);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--muted);line-height:1.5}
+.backdrop{position:fixed;inset:0;background:rgba(16,34,25,.4);backdrop-filter:blur(3px);display:grid;place-items:center;z-index:1000;padding:16px;overflow-y:auto}
+.modal{background:var(--card);border-radius:16px;padding:28px;width:min(440px,100%);box-shadow:0 25px 70px rgba(19,46,32,.25);position:relative;max-height:92vh;overflow-y:auto}
+.modal h2{margin:8px 0 0;font-size:22px;letter-spacing:-.7px}.modal form,.modal .stackf{display:grid;gap:16px;margin-top:20px}
+.mclose{position:absolute;right:16px;top:12px;border:0;background:transparent;color:var(--muted);font-size:25px}
+.mactions{display:flex;justify-content:flex-end;gap:9px;border-top:1px solid var(--line);padding-top:16px}
+.check{display:flex;align-items:center;gap:10px;font-weight:500;font-size:13px}.check input{width:17px;height:17px;accent-color:var(--green)}
+.more-btn{display:flex;align-items:center;gap:12px;width:100%;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:14px;font-weight:600;text-align:left}
+.bottombar{display:none}
+.fab{position:fixed;right:20px;bottom:20px;z-index:900;border:0;border-radius:999px;background:var(--green);color:#fff;font-weight:700;font-size:13px;padding:12px 18px;box-shadow:0 10px 26px rgba(16,99,69,.35);display:flex;gap:8px;align-items:center}
+.toast{position:fixed;left:50%;top:20px;transform:translateX(-50%);z-index:5000;background:#183a2a;color:#fff;padding:12px 18px;border-radius:9px;font-size:12px;box-shadow:var(--shadow);max-width:90vw;animation:fade .25s}
+/* ============ TUTORIAL ============ */
+#tour{position:fixed;inset:0;z-index:3000;pointer-events:none}
+.t-dim{position:fixed;inset:0;background:rgba(10,25,18,.66);display:none}
+.t-hole{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(10,25,18,.62);outline:2px solid #5fd3a1;transition:left .25s,top .25s,width .25s,height .25s;pointer-events:none;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{outline-color:#5fd3a1;outline-offset:0}50%{outline-color:rgba(95,211,161,.35);outline-offset:5px}}
+.t-b{position:fixed;pointer-events:auto;background:transparent}
+.t-card{position:fixed;width:370px;max-width:calc(100vw - 20px);background:var(--card);color:var(--ink);border-radius:16px;padding:20px 22px 16px;box-shadow:0 24px 60px rgba(0,0,0,.35);pointer-events:auto;transition:left .25s,top .25s;border:1px solid var(--line)}
+.t-card.center{left:50%!important;top:50%!important;transform:translate(-50%,-50%);width:460px;transition:none}
+.t-card.mobile{left:10px!important;right:10px;bottom:10px;top:auto!important;width:auto;max-height:54vh;overflow-y:auto;transition:none}
+.t-card.mobile.top{top:10px!important;bottom:auto;max-height:40vh}
+.t-card.mobile .t-actions{position:sticky;bottom:-16px;background:var(--card);padding:10px 0 2px;margin-top:-4px}
+body.tour-modal-mobile .backdrop{place-items:end center;padding-bottom:10px}
+body.tour-modal-mobile .backdrop .modal{max-height:54vh}
+.t-stage{font-size:10px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--green);margin-bottom:6px;padding-right:24px}
+.t-card h3{margin:0 0 8px;font-size:18px;letter-spacing:-.4px;line-height:1.25}
+.t-body{font-size:13px;line-height:1.55;color:var(--ink)}.t-body p{margin:0 0 8px}.t-body ul{margin:6px 0 8px;padding-left:18px}.t-body li{margin-bottom:4px}.t-body b{color:var(--green)}
+.t-warn{margin-top:12px;padding:10px 12px;border-radius:10px;background:#fff4e5;border:1px solid #f3d7a8;color:#8a4f0c;font-size:11.5px;font-weight:800;line-height:1.45;letter-spacing:.2px}
+body.dark .t-warn{background:#3c301d;border-color:#66502a;color:#f0b469}
+.t-actions{flex-wrap:wrap}
+.lang-select{appearance:none;-webkit-appearance:none;background:var(--card) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%237b8781' stroke-width='1.6' stroke-linecap='round'/></svg>") no-repeat right 12px center;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:9px 32px 9px 14px;font-size:12px;font-weight:700;cursor:pointer;outline:0;min-width:120px}
+.t-lang{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.t-lang button{border:1px solid var(--line);background:var(--soft);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700}.t-lang button.on{background:var(--green);border-color:var(--green);color:#fff}
+.fab.left{right:auto;left:20px;background:var(--card);color:var(--green);border:1px solid var(--line);box-shadow:var(--shadow)}
+.t-formula{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12px;margin:8px 0;line-height:1.6}
+.t-mock{display:flex;align-items:center;gap:10px;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px;letter-spacing:2px}
+.t-task{margin-top:10px;padding:9px 12px;border-radius:10px;background:#fff4e5;color:#9a5a12;font-size:12px;font-weight:600;line-height:1.4}
+body.dark .t-task{background:#3c301d;color:#f0b469}.t-task.ok{background:var(--green-light);color:var(--green)}
+.t-foot{display:flex;align-items:center;gap:10px;margin:14px 0 12px}.t-prog{flex:1;height:5px;border-radius:5px;background:var(--line);overflow:hidden}.t-prog span{display:block;height:100%;background:var(--green);transition:width .3s}.t-count{font-size:11px;color:var(--muted);font-weight:700}
+.t-actions{display:flex;align-items:center;gap:8px}.t-actions .sp{flex:1}
+.t-x{position:absolute;right:12px;top:8px;border:0;background:transparent;color:var(--muted);font-size:24px;line-height:1}
+.stage-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}.stage-item:last-child{border:0}
+.stage-n{width:30px;height:30px;border-radius:50%;background:var(--soft);display:grid;place-items:center;font-size:12px;font-weight:800;color:var(--muted);flex-shrink:0}.stage-n.done{background:var(--green);color:#fff}
+#m-stages{z-index:3500}
+@media(max-width:1000px){.main{padding:28px 24px 90px}.grid2,.stats-grid,.col-grid{grid-template-columns:1fr}.cat-grid,.report-grid{grid-template-columns:repeat(2,1fr)}.hero{flex-direction:column;align-items:stretch}}
+@media(max-width:760px){
+  .sidebar{display:none}.main{padding:20px 14px 100px}.topbar h1{font-size:22px}.topbar{margin-bottom:22px}
+  .bottombar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:800;background:var(--card);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
+  .bb{border:0;background:transparent;color:var(--muted);display:grid;justify-items:center;gap:2px;font-size:10px;font-weight:600;padding:6px 0;border-radius:10px}.bb i{font-style:normal;font-size:19px}.bb.active{color:var(--green)}
+  .fab{bottom:78px;right:14px;padding:10px 14px}.fab.left{right:auto;left:14px}
+  .hero{padding:24px}.remaining{font-size:34px}.chart{gap:16px}.donut{height:130px;width:130px}.hole{inset:24px}.hole strong{font-size:12px}
+  .cat-grid,.report-grid,.form-grid,.stat-row{grid-template-columns:1fr}.debt-layout{grid-template-columns:1fr}.inline-form{grid-template-columns:1fr 1fr}.inline-form .btn{grid-column:1/-1}
+  body.tour-on .main{padding-bottom:62vh}
+  .modal{padding:22px}.t-card.center{width:calc(100vw - 20px)}
+}
+@media(prefers-reduced-motion:reduce){.t-hole{animation:none}*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark">S</div><div><strong>Saldo</strong><span>Gestión personal</span></div></div>
+    <nav class="nav" id="nav-desktop">
+      <button class="nav-item" data-go="dashboard"><span class="nav-icon">⌂</span>Resumen</button>
+      <button class="nav-item" data-go="stats"><span class="nav-icon">◒</span>Estadísticas</button>
+      <button class="nav-item" data-go="expenses"><span class="nav-icon">☷</span>Movimientos</button>
+      <button class="nav-item" data-go="categories"><span class="nav-icon">◈</span>Categorías</button>
+      <button class="nav-item" data-go="savings"><span class="nav-icon">♡</span>Ahorrado</button>
+      <button class="nav-item" data-go="collective"><span class="nav-icon">♧</span>Compra colectiva</button>
+      <button class="nav-item" data-go="debts"><span class="nav-icon">⇄</span>Deudas</button>
+      <button class="nav-item" data-go="reports"><span class="nav-icon">▤</span>Reportes</button>
+    </nav>
+    <div class="side-bottom">
+      <div class="cycle-card"><span>Ciclo actual</span><strong id="side-cycle"></strong><span id="side-days"></span></div>
+      <button class="nav-item" data-go="settings"><span class="nav-icon">⚙</span>Configuración</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div><p class="eyebrow" id="eyebrow">Tutorial · datos de ejemplo</p><h1 id="title">Resumen</h1><span class="cycle-pill" id="cycle-pill"></span></div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><select class="lang-select" data-idioma-select aria-label="Idioma"></select><button class="btn primary" id="new-expense-btn" data-act="open-expense"><span>＋</span> Nuevo gasto</button></div>
+    </header>
+
+    <!-- RESUMEN -->
+    <section id="view-dashboard" class="view">
+      <div class="hero" id="hero">
+        <div>
+          <p class="eyebrow">Presupuesto restante</p>
+          <div class="remaining" id="d-rest"></div>
+          <p class="sub" id="d-sub"></p>
+          <div class="hero-progress"><div class="track"><span id="d-bar"></span></div><div class="plabels"><span id="d-spent"></span><span id="d-income"></span></div></div>
+        </div>
+        <div class="projection" id="projection-panel"><p class="eyebrow">Proyección a fin de ciclo</p><strong id="d-proj"></strong><p>Lo que te queda hoy, menos los recurrentes que todavía faltan.</p></div>
+      </div>
+      <div class="grid2">
+        <article class="panel" id="donut-panel"><h2>Gastos por categoría</h2><div class="chart"><div class="donut" id="donut"><div class="hole"><strong id="d-total"></strong><span>gastado</span></div></div><div class="legend" id="legend"></div></div></article>
+        <article class="panel" id="recent-panel"><h2>Actividad reciente</h2><div id="recent"></div></article>
+      </div>
+      <article class="panel" id="recurring-card" style="margin-top:22px">
+        <div class="ph"><div><h2>Recurrentes pendientes</h2><p class="muted">Confirmá si ya se pagaron. Aprobar lo pasa a gastos; rechazar deja de proyectarlo.</p></div></div>
+        <div id="rec-list"></div>
+      </article>
+    </section>
+
+    <!-- ESTADISTICAS -->
+    <section id="view-stats" class="view">
+      <div class="intro"><div><p class="eyebrow">Análisis</p><h2>Estadísticas</h2><p class="muted">Cómo se reparte tu gasto y a qué ritmo vas.</p></div></div>
+      <div class="stats-grid">
+        <article class="panel" id="stats-bars"><h2>Gasto por categoría</h2><div class="bars" id="bars"></div></article>
+        <article class="panel" id="stats-insights"><h2>Lo que dicen tus números</h2><div style="margin-top:20px" id="insights"></div></article>
+      </div>
+    </section>
+
+    <!-- MOVIMIENTOS -->
+    <section id="view-expenses" class="view">
+      <div class="intro"><div><p class="eyebrow">Historial del ciclo</p><h2>Movimientos</h2></div></div>
+      <article class="panel" style="padding:0" id="mov-panel">
+        <div class="toolbar"><input class="inp" id="q" placeholder="Buscar gasto…" style="width:240px;max-width:100%" /><select class="inp" id="f"></select></div>
+        <div class="tw"><table><thead><tr><th>Descripción</th><th>Categoría</th><th>Fecha</th><th>Tipo</th><th class="ar">Importe</th><th></th></tr></thead><tbody id="mov-body"></tbody></table></div>
+        <div class="empty" id="mov-empty" hidden>No hay movimientos con ese filtro.</div>
+      </article>
+    </section>
+
+    <!-- CATEGORIAS -->
+    <section id="view-categories" class="view">
+      <div class="intro"><div><p class="eyebrow">Organización</p><h2>Categorías</h2><p class="muted">Tocá una para ver solo sus gastos.</p></div></div>
+      <div class="cat-grid" id="cat-grid"></div>
+    </section>
+
+    <!-- AHORRADO -->
+    <section id="view-savings" class="view">
+      <div class="intro"><div><p class="eyebrow">Tu colchón</p><h2>Ahorrado</h2></div></div>
+      <div class="stat-row" id="sav-top"><div class="mini"><span>Total ahorrado</span><strong id="sv-total"></strong></div><div class="mini"><span>Ciclos cerrados</span><strong id="sv-count"></strong></div><div class="mini"><span>Promedio por ciclo</span><strong id="sv-avg"></strong></div></div>
+      <div class="grid2" style="margin-top:0">
+        <article class="panel"><div class="ph"><div><h2>Cierres de ciclo</h2><p class="muted">Lo que sobra cada ciclo pasa solo a Ahorrado.</p></div><button class="btn secondary sm" id="sim-btn" data-act="sim-cycle">Simular cierre de ciclo</button></div><div id="sv-history"></div></article>
+        <article class="panel" id="goals"><h2>Metas de ahorro</h2><div id="goal-box"></div></article>
+      </div>
+    </section>
+
+    <!-- COMPRA COLECTIVA -->
+    <section id="view-collective" class="view">
+      <div class="intro"><div><p class="eyebrow">Gastos compartidos</p><h2>Compra colectiva</h2><p class="muted">Dividí lo que pagó cada uno y mirá quién le transfiere a quién.</p></div></div>
+      <div class="col-grid">
+        <article class="panel" id="col-config"><h2 id="col-name"></h2><p class="muted">Participantes</p><div class="chips" id="col-people"></div><p class="muted">Compras registradas</p><div id="col-compras"></div>
+          <form id="col-form" class="inline-form"><input class="inp" id="col-desc" placeholder="Compra (ej. Bebidas)" maxlength="40" required /><input class="inp" id="col-amount" type="number" min="1" placeholder="Importe" required /><select class="inp" id="col-payer"></select><button class="btn secondary" type="submit">Agregar</button></form>
+        </article>
+        <article class="panel" id="col-result">
+          <div class="stat-row" style="grid-template-columns:1fr 1fr;margin-bottom:6px"><div class="mini"><span>Total</span><strong id="col-total"></strong></div><div class="mini"><span>Parte por persona</span><strong id="col-share"></strong></div></div>
+          <div class="ph" style="margin-top:16px"><div><h2>Transferencias</h2><p class="muted">Quién debe pagarle a quién.</p></div><button class="btn secondary sm" id="save-debts-btn" data-act="save-debts-open">Guardar en deudas</button></div>
+          <div id="col-transfers"></div>
+          <h2 style="margin-top:22px;font-size:14px">Balances</h2><div id="col-balances"></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- DEUDAS -->
+    <section id="view-debts" class="view">
+      <div class="intro"><div><p class="eyebrow">Control de saldos</p><h2>Gestión de deudas</h2><p class="muted">Lo que te deben y lo que debés, unificado por persona.</p></div></div>
+      <div class="debt-layout">
+        <aside><div class="dstat g"><span>Te deben en total</span><strong id="dt-owed"></strong></div><div class="dstat r"><span>Debés en total</span><strong id="dt-owe"></strong></div></aside>
+        <article class="panel"><h2>Balances por persona</h2><p class="muted">Positivo: te debe · Negativo: le debés.</p><div id="debt-list"></div></article>
+      </div>
+    </section>
+
+    <!-- REPORTES -->
+    <section id="view-reports" class="view">
+      <div class="intro"><div><p class="eyebrow">Salida de datos</p><h2>Reportes y respaldos</h2></div></div>
+      <div class="report-grid" id="rep-grid">
+        <article class="panel rcard"><div class="ricon">▤</div><h2>Informe PDF</h2><p class="muted">Un resumen imprimible de tu ciclo: ingresos, gastos y categorías.</p><button class="btn secondary sm" data-act="toast" data-msg="En la app real se abre el informe listo para imprimir o guardar como PDF.">Generar informe PDF</button></article>
+        <article class="panel rcard"><div class="ricon">⇩</div><h2>Exportar respaldo</h2><p class="muted">Un archivo con todo (gastos, ahorros, deudas, categorías…) para restaurar cuando quieras.</p><button class="btn secondary sm" data-act="toast" data-msg="En la app real se descarga el respaldo completo (.xls).">Exportar respaldo</button></article>
+        <article class="panel rcard"><div class="ricon">⇧</div><h2>Importar respaldo</h2><p class="muted">Restaurá un respaldo exportado desde Saldo en este u otro dispositivo.</p><button class="btn secondary sm" data-act="toast" data-msg="En la app real elegís el archivo y se restauran todos tus datos.">Importar respaldo</button></article>
+      </div>
+    </section>
+
+    <!-- CONFIGURACION -->
+    <section id="view-settings" class="view">
+      <div class="intro"><div><p class="eyebrow">Preferencias</p><h2>Configuración</h2></div></div>
+      <div class="settings">
+        <div class="opt-cards" id="income-type">
+          <button class="opt sel" data-act="income-type" data-t="fijo"><i></i><div><strong>Ingreso fijo o programado</strong><span>Recibís un sueldo base en una fecha concreta. El ciclo arranca automáticamente con ese monto.</span></div></button>
+          <button class="opt" data-act="income-type" data-t="variable"><i></i><div><strong>Ingresos variables o sin base fija</strong><span>Sos freelancer, cobrás changas o becas. El ciclo arranca en $0 y cargás cada ingreso a mano.</span></div></button>
+        </div>
+        <article class="panel" id="income-fields">
+          <div class="form-grid">
+            <label class="lbl">Ingreso neto (en mano)<input class="inp" id="s-income" type="number" min="0" step="1000" /><span class="hint">Dinero real disponible tras descuentos y aportes.</span></label>
+            <label class="lbl">Día de corte<input class="inp" id="s-cutoff" type="number" min="1" max="31" /><span class="hint">El ciclo se reinicia ese día de cada mes.</span></label>
+          </div>
+          <div class="note-box" id="variable-note" style="margin-top:16px" hidden>En esta demo mantenemos tu ingreso de ejemplo para no vaciar el resumen. En la app real, con ingresos variables el ciclo arranca en $0 y vas sumando cada ingreso.</div>
+        </article>
+        <article class="panel" id="dark-row"><div class="switch-row"><div><h2>Modo oscuro</h2><p class="muted">Cambia el aspecto de toda la app.</p></div><button class="switch" id="dark-switch" data-act="dark" aria-label="Modo oscuro"></button></div></article>
+        <article class="panel"><div class="switch-row"><div><h2>Datos de la demo</h2><p class="muted">Volvé a empezar con los datos de ejemplo originales.</p></div><button class="btn danger sm" data-act="reset-demo">Reiniciar demo</button></div></article>
+      </div>
+    </section>
+  </main>
+</div>
+
+<nav class="bottombar" id="nav-mobile">
+  <button class="bb" data-go="dashboard"><i>⌂</i>Resumen</button>
+  <button class="bb" data-go="expenses"><i>☷</i>Gastos</button>
+  <button class="bb" data-go="stats"><i>◒</i>Estadísticas</button>
+  <button class="bb" data-go="savings"><i>♡</i>Ahorrado</button>
+  <button class="bb" data-act="open-more" id="bb-more"><i>⋯</i>Más</button>
+</nav>
+
+<button class="fab" id="fab" data-act="tour-menu">❓ Tutorial</button>
+<button class="fab left" id="exit-fab" data-act="go-app">Ir a la aplicación principal →</button>
+
+<!-- Modales -->
+<div class="backdrop" id="m-expense" hidden><div class="modal">
+  <button class="mclose" data-act="close" aria-label="Cerrar">×</button>
+  <p class="eyebrow">Movimientos</p><h2>Nuevo gasto</h2>
+  <form id="expense-form">
+    <label class="lbl">Descripción<input class="inp" id="e-desc" maxlength="50" placeholder="Ej. Panadería" required /></label>
+    <label class="lbl">Importe ($)<input class="inp" id="e-amount" type="number" min="1" placeholder="Ej. 3500" required /></label>
+    <label class="lbl">Categoría<select class="inp" id="e-cat"></select></label>
+    <label class="check"><input type="checkbox" id="e-rec" /> Es un gasto recurrente (se repite todos los meses)</label>
+    <div class="mactions"><button type="button" class="btn ghost" data-act="close">Cancelar</button><button class="btn primary" type="submit">Guardar gasto</button></div>
+  </form>
+</div></div>
+
+<div class="backdrop" id="m-debts" hidden><div class="modal">
+  <button class="mclose" data-act="close" aria-label="Cerrar">×</button>
+  <p class="eyebrow">Compra colectiva</p><h2>Guardar en deudas</h2>
+  <p class="muted">Se registran solo las deudas que te involucran: lo que te deben y lo que debés.</p>
+  <div class="stackf">
+    <label class="lbl">¿Quién sos en esta compra?<select class="inp" id="debt-self"></select></label>
+    <div id="debt-preview"></div>
+    <div class="mactions"><button class="btn ghost" data-act="close">Cancelar</button><button class="btn primary" id="debt-confirm" data-act="debts-confirm" disabled>Guardar en deudas</button></div>
+  </div>
+</div></div>
+
+<div class="backdrop" id="m-more" hidden><div class="modal">
+  <button class="mclose" data-act="close" aria-label="Cerrar">×</button>
+  <p class="eyebrow">Menú principal</p><h2>Explorar</h2>
+  <div class="stackf">
+    <button class="more-btn" data-go="categories"><span>◈</span>Categorías</button>
+    <button class="more-btn" data-go="collective"><span>♧</span>Compra colectiva</button>
+    <button class="more-btn" data-go="debts"><span>⇄</span>Deudas</button>
+    <button class="more-btn" data-go="reports"><span>▤</span>Reportes</button>
+    <button class="more-btn" data-go="settings"><span>⚙</span>Configuración</button>
+  </div>
+</div></div>
+
+<div class="backdrop" id="m-stages" hidden><div class="modal" style="width:min(480px,100%)">
+  <button class="mclose" data-act="close" aria-label="Cerrar">×</button>
+  <p class="eyebrow">Tutorial</p><h2>Etapas de Saldo</h2><p class="muted">Seguí el recorrido completo o saltá a la etapa que quieras repasar.</p>
+  <div id="stage-list"></div>
+  <div class="mactions" style="margin-top:12px"><button class="btn ghost sm" data-act="tour-reset">Reiniciar progreso</button><button class="btn primary sm" data-act="tour-continue" id="stage-continue">Empezar</button></div>
+</div></div>
+
+<!-- Tutorial -->
+<div id="tour" hidden>
+  <div class="t-dim" id="t-dim"></div>
+  <div class="t-b" id="tb-top"></div><div class="t-b" id="tb-bottom"></div><div class="t-b" id="tb-left"></div><div class="t-b" id="tb-right"></div><div class="t-b" id="tb-hole"></div>
+  <div class="t-hole" id="t-hole"></div>
+  <div class="t-card" id="t-card" role="dialog" aria-live="polite" aria-labelledby="t-title">
+    <button class="t-x" id="t-close" aria-label="Cerrar tutorial">×</button>
+    <div class="t-stage" id="t-stage"></div>
+    <h3 id="t-title"></h3>
+    <div class="t-body" id="t-body"></div>
+    <div class="t-task" id="t-task" hidden></div>
+    <div class="t-foot"><div class="t-prog"><span id="t-bar"></span></div><span class="t-count" id="t-count"></span></div>
+    <div class="t-actions"><button class="btn ghost sm" id="t-menu">☰ Etapas</button><span class="sp"></span><button class="btn ghost sm" id="t-prev">Atrás</button><button class="btn primary sm" id="t-next">Siguiente</button></div>
+  </div>
+</div>
+
+<script src="scripts/00-i18n.js"></script>
+<script src="scripts/idiomas/en.js"></script>
+<script src="scripts/idiomas/pt.js"></script>
+<script src="scripts/idiomas/fr.js"></script>
+<script src="scripts/idiomas/de.js"></script>
+<script src="scripts/idiomas/it.js"></script>
+<script>
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const money=v=>new Intl.NumberFormat(idiomaLocale(),{style:'currency',currency:'ARS',currencyDisplay:'narrowSymbol',maximumFractionDigits:0}).format(Math.round(v||0));
+const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9);
+const isMobile=()=>matchMedia('(max-width:760px)').matches;
+const fmtDay=d=>new Intl.DateTimeFormat(idiomaLocale(),{day:'2-digit',month:'short'}).format(d).replace(/\./g,'');
+const isoDay=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const fromIso=s=>new Date(s+'T12:00:00');
+const keyP=n=>String(n||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+/* Sale del tutorial hacia la aplicación real. Guarda la marca de "tutorial visto" y
+   agrega ?sin-tutorial para evitar bucles si el almacenamiento no está disponible. */
+function irALaApp(){store('saldo-tutorial-visto','1');location.href='index.html?sin-tutorial=1'}
+function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2800)}
+
+/* ============================================================
+   ESTADO DE LA DEMO (en memoria; no toca datos reales)
+   ============================================================ */
+const CATS=[
+  {id:'food',name:'Alimentación',color:'#177b55',icon:'▣'},{id:'home',name:'Hogar',color:'#ed9c54',icon:'⌂'},
+  {id:'transport',name:'Transporte',color:'#8b7ee7',icon:'🚗'},{id:'leisure',name:'Ocio',color:'#5c9ee8',icon:'✦'},
+  {id:'health',name:'Salud',color:'#d95f59',icon:'🏥'},{id:'services',name:'Servicios',color:'#c77bcb',icon:'💡'}
+];
+const cat=id=>CATS.find(c=>c.id===id)||{name:'Sin categoría',color:'#aab2ad',icon:'•'};
+const S={};
+function cycle(){
+  const t=new Date();t.setHours(12,0,0,0);let y=t.getFullYear(),m=t.getMonth();
+  const dim=(a,b)=>new Date(a,b+1,0).getDate();
+  if(t.getDate()<S.corte){m--;if(m<0){m=11;y--}}
+  const start=new Date(y,m,Math.min(S.corte,dim(y,m)),12);
+  let y2=y,m2=m+1;if(m2>11){m2=0;y2++}
+  const next=new Date(y2,m2,Math.min(S.corte,dim(y2,m2)),12);
+  const end=new Date(next);end.setDate(end.getDate()-1);
+  return {start,end,days:Math.round((end-start)/864e5)+1,elapsed:Math.max(1,Math.round((t-start)/864e5)+1)};
+}
+function seed(){
+  Object.keys(S).forEach(k=>delete S[k]);
+  Object.assign(S,{ingreso:250000,corte:1,tipo:'fijo',q:'',f:'all',last:null,yo:'',simulado:false,view:'dashboard'});
+  const c=cycle(), hoy=new Date();hoy.setHours(12,0,0,0);
+  const at=n=>{const d=new Date(c.start);d.setDate(d.getDate()+n);return isoDay(d>hoy?hoy:d)};
+  S.gastos=[
+    {id:uid(),desc:'Supermercado',amount:24800,cat:'food',date:at(0)},{id:uid(),desc:'Carga SUBE',amount:6000,cat:'transport',date:at(1)},
+    {id:uid(),desc:'Cine',amount:9500,cat:'leisure',date:at(2)},{id:uid(),desc:'Farmacia',amount:7300,cat:'health',date:at(3)},
+    {id:uid(),desc:'Verdulería',amount:6200,cat:'food',date:at(4)},{id:uid(),desc:'Factura de luz',amount:11400,cat:'services',date:at(5)}
+  ].reverse();
+  S.rec=[{id:uid(),desc:'Alquiler',amount:120000,cat:'home',freq:'Mensual · día 5'},{id:uid(),desc:'Gimnasio',amount:18000,cat:'health',freq:'Mensual · día 10'},{id:uid(),desc:'Streaming',amount:6500,cat:'leisure',freq:'Mensual · día 20'}];
+  S.ahorro={saldo:125700,hist:[{label:'Cierre de julio',amount:38000},{label:'Cierre de agosto',amount:45200},{label:'Cierre de septiembre',amount:42500}]};
+  S.meta={name:'Notebook nueva',target:900000};
+  S.col={name:'Asado del domingo',people:[{id:'p1',name:'Yo'},{id:'p2',name:'Bruno'},{id:'p3',name:'Carla'}],compras:[{id:uid(),desc:'Carne',amount:30000,payer:'p1'},{id:uid(),desc:'Bebidas',amount:9000,payer:'p2'}]};
+  S.deudas=[];
+}
+const gastado=()=>S.gastos.reduce((a,g)=>a+g.amount,0);
+const restante=()=>S.ingreso-gastado();
+const pendiente=()=>S.rec.reduce((a,r)=>a+r.amount,0);
+const proyeccion=()=>restante()-pendiente();
+
+/* Compra colectiva: mismo cálculo que la app (reparto igualitario entre incluidos) */
+function liquidar(){
+  const P=S.col.people,total=S.col.compras.reduce((a,c)=>a+c.amount,0),share=P.length?total/P.length:0;
+  const bal=P.map(p=>{const paid=S.col.compras.filter(c=>c.payer===p.id).reduce((a,c)=>a+c.amount,0);return {...p,paid,owed:share,balance:paid-share}});
+  const cred=bal.filter(p=>p.balance>.005).map(p=>({...p,amount:p.balance})),deu=bal.filter(p=>p.balance<-.005).map(p=>({...p,amount:-p.balance}));
+  const tr=[];deu.forEach(d=>{let r=d.amount;cred.forEach(c=>{if(r<=.005||c.amount<=.005)return;const m=Math.min(r,c.amount);tr.push({from:d.name,to:c.name,amount:m});r-=m;c.amount-=m})});
+  return {total,share,bal,tr};
+}
+function deudasDesdeColectivo(yo){
+  const k=keyP(yo),out=[];
+  liquidar().tr.forEach(t=>{const a=Math.round(t.amount*100)/100;if(!(a>0))return;
+    if(keyP(t.to)===k)out.push({person:t.from,type:'te-deben',amount:a});else if(keyP(t.from)===k)out.push({person:t.to,type:'debes',amount:a})});
+  return out;
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+const VIEWS={dashboard:['Resumen financiero','Resumen'],stats:['Estadísticas','Análisis'],expenses:['Movimientos','Historial'],categories:['Categorías','Organización'],savings:['Ahorrado','Tu colchón'],collective:['Compra colectiva','Gastos compartidos'],debts:['Deudas','Control de saldos'],reports:['Reportes y respaldos','Salida de datos'],settings:['Configuración','Preferencias']};
+const MORE_VIEWS=['categories','collective','debts','reports','settings'];
+
+function go(v){
+  S.view=v;$$('.view').forEach(x=>x.classList.toggle('on',x.id==='view-'+v));
+  $$('[data-go]').forEach(b=>{if(b.closest('.modal'))return;b.classList.toggle('active',b.dataset.go===v)});
+  $('#bb-more').classList.toggle('active',MORE_VIEWS.includes(v));
+  $('#title').textContent=VIEWS[v][0];$('#eyebrow').textContent=VIEWS[v][1];
+  $('#new-expense-btn').style.display=['dashboard','expenses','categories'].includes(v)?'':'none';
+  window.scrollTo(0,0);renderAll();
+}
+function renderAll(){renderChrome();renderDash();renderStats();renderMov();renderCat();renderSav();renderCol();renderDebts()}
+
+function renderChrome(){
+  const c=cycle();
+  $('#cycle-pill').textContent=`Ciclo actual: ${fmtDay(c.start)} – ${fmtDay(c.end)}`;
+  $('#side-cycle').textContent=`${fmtDay(c.start)} – ${fmtDay(c.end)}`;
+  $('#side-days').textContent=`Día ${c.elapsed} de ${c.days}`;
+}
+function renderDash(){
+  const c=cycle(),g=gastado(),r=restante(),pct=S.ingreso?Math.max(0,Math.min(100,g/S.ingreso*100)):0;
+  $('#d-rest').textContent=money(r);
+  $('#d-sub').textContent=`Te quedan ${Math.max(0,c.days-c.elapsed)} días de ciclo`;
+  $('#d-bar').style.width=pct+'%';$('#d-spent').textContent=`Gastado ${money(g)}`;$('#d-income').textContent=`Ingreso ${money(S.ingreso)}`;
+  $('#d-proj').textContent=money(proyeccion());$('#d-total').textContent=money(g);
+  const by={};S.gastos.forEach(x=>by[x.cat]=(by[x.cat]||0)+x.amount);
+  const ent=Object.entries(by).sort((a,b)=>b[1]-a[1]);let acc=0;
+  $('#donut').style.background=ent.length?`conic-gradient(${ent.map(([id,v])=>{const s=acc/g*360;acc+=v;return `${cat(id).color} ${s}deg ${acc/g*360}deg`}).join(',')})`:'var(--line)';
+  $('#legend').innerHTML=ent.map(([id,v])=>`<div class="legend-row"><i class="dot" style="background:${cat(id).color}"></i>${esc(cat(id).name)}<span>${Math.round(v/g*100)}%</span></div>`).join('')||'<div class="empty">Sin gastos todavía.</div>';
+  $('#recent').innerHTML=S.gastos.slice(0,5).map(x=>`<div class="row"><div class="avatar" style="background:${cat(x.cat).color}22;color:${cat(x.cat).color}">${cat(x.cat).icon}</div><div class="info"><strong>${esc(x.desc)}</strong><span>${esc(cat(x.cat).name)} · ${fmtDay(fromIso(x.date))}</span></div><span class="val">−${money(x.amount)}</span></div>`).join('')||'<div class="empty">Sin movimientos.</div>';
+  $('#rec-list').innerHTML=S.rec.map(x=>`<div class="rec-row"><div class="avatar" style="background:${cat(x.cat).color}22;color:${cat(x.cat).color}">${cat(x.cat).icon}</div><div class="info"><strong>${esc(x.desc)}</strong><span>${esc(x.freq)} · ${money(x.amount)}</span></div><div class="rec-actions"><button class="btn secondary sm" data-act="rec-ok" data-id="${x.id}">✓ Aprobar</button><button class="btn danger sm" data-act="rec-no" data-id="${x.id}">Rechazar</button></div></div>`).join('')||'<div class="empty">No hay recurrentes pendientes. ¡Todo al día!</div>';
+}
+function renderStats(){
+  const g=gastado(),by={};S.gastos.forEach(x=>by[x.cat]=(by[x.cat]||0)+x.amount);
+  const ent=Object.entries(by).sort((a,b)=>b[1]-a[1]);
+  $('#bars').innerHTML=ent.map(([id,v])=>`<div><div class="bl"><span>${esc(cat(id).name)}</span><b>${money(v)} · ${Math.round(v/g*100)}%</b></div><div class="bt"><div class="bf" style="width:${v/g*100}%;background:${cat(id).color}"></div></div></div>`).join('')||'<div class="empty">Sin datos.</div>';
+  const c=cycle(),ritmoGasto=S.ingreso?Math.round(g/S.ingreso*100):0,ritmoCiclo=Math.round(c.elapsed/c.days*100);
+  $('#insights').innerHTML=ent.length?`<div class="insight"><strong>${esc(cat(ent[0][0]).name)} lidera</strong><span>Concentra el ${Math.round(ent[0][1]/g*100)}% de lo que gastaste.</span></div><div class="insight"><strong>${money(g/c.elapsed)} por día</strong><span>Promedio de gasto desde que empezó el ciclo.</span></div><div class="insight"><strong>${ritmoGasto}% gastado · ${ritmoCiclo}% del ciclo</strong><span>${ritmoGasto>ritmoCiclo?'Vas más rápido que el calendario: ojo con el ritmo.':'Vas por debajo del calendario: buen ritmo.'}</span></div>`:'<div class="empty">Cargá gastos para ver conclusiones.</div>';
+}
+function renderMov(){
+  const q=keyP(S.q);
+  const list=S.gastos.filter(x=>keyP(x.desc).includes(q)&&(S.f==='all'||x.cat===S.f));
+  $('#mov-body').innerHTML=list.map(x=>`<tr><td><strong>${esc(x.desc)}</strong></td><td><span style="display:inline-flex;align-items:center;gap:7px;color:var(--muted)"><i class="dot" style="background:${cat(x.cat).color}"></i>${esc(cat(x.cat).name)}</span></td><td>${fmtDay(fromIso(x.date))}</td><td><span class="tag ${x.rec?'rec':''}">${x.rec?'Recurrente':'Único'}</span></td><td class="ar"><strong>${money(x.amount)}</strong></td><td class="ar"><button class="x" data-act="toast" data-msg="En la app real el ✎ abre el editor para corregir el gasto y guarda el historial de cambios." title="Corregir">✎</button><button class="x" data-act="del-exp" data-id="${x.id}" title="Eliminar">×</button></td></tr>`).join('');
+  $('#mov-empty').hidden=list.length>0;
+}
+function renderCat(){
+  $('#cat-grid').innerHTML=CATS.map(c=>{const n=S.gastos.filter(x=>x.cat===c.id).length,m=S.rec.filter(x=>x.cat===c.id).length;
+    return `<button class="cat-card" data-act="cat-filter" data-id="${c.id}"><div class="ci" style="background:${c.color}22;color:${c.color}">${c.icon}</div><strong>${esc(c.name)}</strong><span>${n} ${n===1?'gasto único':'gastos únicos'}</span><span>${m} ${m===1?'recurrente pendiente':'recurrentes pendientes'}</span></button>`}).join('');
+}
+function renderSav(){
+  const A=S.ahorro,avg=A.hist.length?Math.round(A.hist.reduce((a,h)=>a+h.amount,0)/A.hist.length):0;
+  $('#sv-total').textContent=money(A.saldo);$('#sv-count').textContent=A.hist.length;$('#sv-avg').textContent=money(avg);
+  $('#sv-history').innerHTML=[...A.hist].reverse().map(h=>`<div class="row"><div class="avatar" style="background:var(--green-light);color:var(--green)">↗</div><div class="info"><strong>${esc(h.label)}</strong><span>${h.sim?'Simulado en esta demo':'Transferido automáticamente'}</span></div><span class="val pos">+${money(h.amount)}</span></div>`).join('');
+  const btn=$('#sim-btn');btn.disabled=S.simulado;btn.textContent=S.simulado?'Simulado ✓':'Simular cierre de ciclo';
+  const pct=Math.min(100,Math.round(A.saldo/S.meta.target*100)),falta=Math.max(0,S.meta.target-A.saldo),ciclos=avg?Math.ceil(falta/avg):0;
+  $('#goal-box').innerHTML=`<div class="info" style="margin-top:16px"><strong style="font-size:14px;white-space:normal">${esc(S.meta.name)}</strong><span>Objetivo ${money(S.meta.target)}</span></div><div class="goal-bar"><span style="width:${pct}%"></span></div><p class="muted"><b>${pct}%</b> logrado · faltan ${money(falta)}</p><div class="note-box">${avg?t('Con tu promedio real de ahorro ({} por ciclo) llegarías en <b>{}</b>.',money(avg),ciclos===1?t('1 ciclo'):t('{#} ciclos',ciclos)):'Todavía no hay ciclos cerrados para estimar.'}</div>`;
+}
+function renderCol(){
+  const L=liquidar(),nm=id=>S.col.people.find(p=>p.id===id)?.name||'';
+  $('#col-name').textContent=S.col.name;
+  $('#col-people').innerHTML=S.col.people.map(p=>`<span class="chip">${esc(p.name)}</span>`).join('');
+  $('#col-payer').innerHTML=S.col.people.map(p=>`<option value="${p.id}">Pagó ${esc(p.name)}</option>`).join('');
+  $('#col-compras').innerHTML=S.col.compras.map(c=>`<div class="row"><div class="info"><strong>${esc(c.desc)}</strong><span>Pagó ${esc(nm(c.payer))}</span></div><span class="val">${money(c.amount)}</span><button class="x" data-act="del-compra" data-id="${c.id}">×</button></div>`).join('')||'<div class="empty">Agregá la primera compra.</div>';
+  $('#col-total').textContent=money(L.total);$('#col-share').textContent=money(L.share);
+  const grp={};L.tr.forEach(t=>(grp[t.from]=grp[t.from]||[]).push(t));
+  $('#col-transfers').innerHTML=L.tr.length?Object.entries(grp).map(([d,ts])=>`<div class="group"><h3>${esc(d)} debe transferir</h3>${ts.map(t=>`<div class="tr"><span>A <b>${esc(t.to)}</b></span><b>${money(t.amount)}</b></div>`).join('')}</div>`).join(''):'<div class="empty">Todos quedan equilibrados.</div>';
+  $('#col-balances').innerHTML=L.bal.map(p=>`<div class="row"><div class="info"><strong>${esc(p.name)}</strong><span>Pagó ${money(p.paid)} · Le corresponde ${money(p.owed)}</span></div><b class="val ${p.balance>=0?'pos':'neg'}">${p.balance>=0?'+':'−'}${money(Math.abs(p.balance))}</b></div>`).join('');
+}
+function renderDebts(){
+  const g={};let owed=0,owe=0;
+  S.deudas.forEach(d=>{const k=keyP(d.person),x=g[k]||(g[k]={name:d.person,mov:[],net:0});x.mov.push(d);if(d.type==='te-deben'){x.net+=d.amount;owed+=d.amount}else{x.net-=d.amount;owe+=d.amount}});
+  $('#dt-owed').textContent=money(owed);$('#dt-owe').textContent=money(owe);
+  const P=Object.values(g).sort((a,b)=>Math.abs(b.net)-Math.abs(a.net));
+  $('#debt-list').innerHTML=P.length?P.map(p=>`<div class="dperson"><div class="dhead"><div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="background:var(--green-light);color:var(--green);border-radius:50%">${esc(p.name.charAt(0).toUpperCase())}</div><strong>${esc(p.name)}</strong></div><div style="text-align:right"><span class="hint">Balance neto</span><br><b class="${p.net<0?'neg':'pos'}" style="font-size:17px">${money(p.net)}</b></div></div>${p.mov.map(m=>`<div class="dmove"><div class="info"><strong>${esc(m.reason)}</strong><span>${m.sourceId?'Desde compra colectiva':'Manual'}</span></div><b class="val ${m.type==='te-deben'?'pos':'neg'}">${m.type==='te-deben'?'+':'−'}${money(m.amount)}</b><button class="x" data-act="debt-del" data-id="${m.id}">×</button></div>`).join('')}</div>`).join(''):'<div class="empty">No hay deudas registradas. Probá guardar el resultado de una compra colectiva.</div>';
+}
+
+/* ============================================================
+   MODALES
+   ============================================================ */
+function openModal(id,quiet){const m=$('#'+id);m.hidden=false;if(!quiet)Tour.emit('open:'+id)}
+function closeModal(id){$('#'+id).hidden=true;if(Tour.active&&STEPS[Tour.i].modal===id&&!Tour.waitDone)Tour.prev()}
+function closeModals(except){$$('.backdrop').forEach(m=>{if(m.id!==except&&m.id!=='m-stages')m.hidden=true})}
+function fillExpenseForm(){$('#e-cat').innerHTML=CATS.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
+function renderDebtPreview(){
+  const nombre=$('#debt-self').value,box=$('#debt-preview'),btn=$('#debt-confirm');
+  const previas=S.deudas.filter(d=>d.sourceId==='col-1');
+  if(!nombre){box.innerHTML='<div class="empty">Elegí quién sos para ver qué deudas se generan.</div>';btn.disabled=true;return}
+  const n=deudasDesdeColectivo(nombre);btn.disabled=!n.length&&!previas.length;
+  const aviso=previas.length?'<p class="hint" style="margin-top:8px">Esta compra ya se guardó antes: se actualizan, no se duplican.</p>':'';
+  box.innerHTML=n.length?`<div>${n.map(d=>`<div class="dmove"><div class="info"><strong>${esc(d.person)}</strong><span>${d.type==='te-deben'?'Te debe':'Le debés'}</span></div><b class="val ${d.type==='te-deben'?'pos':'neg'}">${d.type==='te-deben'?'+':'−'}${money(d.amount)}</b></div>`).join('')}</div>${aviso}`:`<div class="empty">No tenés deudas pendientes en esta compra: quedás equilibrado.</div>${aviso}`;
+}
+
+/* ============================================================
+   ACCIONES
+   ============================================================ */
+const ACT={
+  'open-expense':()=>{fillExpenseForm();$('#expense-form').reset();openModal('m-expense')},
+  'open-more':()=>openModal('m-more',true),
+  close:el=>closeModal(el.closest('.backdrop').id),
+  toast:el=>toast(el.dataset.msg),
+  'del-exp':el=>{S.gastos=S.gastos.filter(x=>x.id!==el.dataset.id);renderAll()},
+  'cat-filter':el=>{S.f=el.dataset.id;$('#f').value=S.f;go('expenses');Tour.emit('cat-filter')},
+  'rec-ok':el=>{const r=S.rec.find(x=>x.id===el.dataset.id);if(!r)return;S.rec=S.rec.filter(x=>x.id!==r.id);S.gastos.unshift({id:uid(),desc:r.desc,amount:r.amount,cat:r.cat,date:isoDay(new Date()),rec:true});S.last={kind:'rec-ok',amount:r.amount,desc:r.desc};renderAll();Tour.emit('recurring-resolved')},
+  'rec-no':el=>{const r=S.rec.find(x=>x.id===el.dataset.id);if(!r)return;S.rec=S.rec.filter(x=>x.id!==r.id);S.last={kind:'rec-no',amount:r.amount,desc:r.desc};renderAll();Tour.emit('recurring-resolved')},
+  'sim-cycle':()=>{if(S.simulado)return;const a=Math.max(0,restante());S.ahorro.hist.push({label:'Hoy (cierre simulado)',amount:a,sim:true});S.ahorro.saldo+=a;S.simulado=true;S.lastSim=a;renderAll();Tour.emit('cycle-simulated')},
+  'del-compra':el=>{S.col.compras=S.col.compras.filter(c=>c.id!==el.dataset.id);renderAll()},
+  'save-debts-open':()=>{if(S.col.people.length<2||!S.col.compras.length)return toast('Agregá compras antes de guardar en deudas.');
+    $('#debt-self').innerHTML='<option value="">Elegí quién sos…</option>'+S.col.people.map(p=>`<option value="${esc(p.name)}" ${keyP(p.name)===keyP(S.yo)?'selected':''}>${esc(p.name)}</option>`).join('');renderDebtPreview();openModal('m-debts')},
+  'debts-confirm':()=>{const n=$('#debt-self').value;if(!n)return;const nuevas=deudasDesdeColectivo(n);
+    S.deudas=S.deudas.filter(d=>d.sourceId!=='col-1');nuevas.forEach(d=>S.deudas.push({...d,id:uid(),reason:S.col.name,sourceId:'col-1'}));S.yo=n;
+    renderAll();toast(nuevas.length?`Se guardaron ${nuevas.length} ${nuevas.length===1?'deuda':'deudas'} en Deudas.`:'No había deudas para guardar.');Tour.emit('debts-saved');closeModal('m-debts')},
+  'debt-del':el=>{S.deudas=S.deudas.filter(d=>d.id!==el.dataset.id);renderAll()},
+  'income-type':el=>{S.tipo=el.dataset.t;$$('#income-type .opt').forEach(b=>b.classList.toggle('sel',b.dataset.t===S.tipo));$('#variable-note').hidden=S.tipo!=='variable'},
+  dark:()=>{document.body.classList.toggle('dark');$('#dark-switch').classList.toggle('on',document.body.classList.contains('dark'));Tour.emit('dark-toggled')},
+  'reset-demo':()=>{seed();syncSettings();go('settings');toast('Demo reiniciada con los datos de ejemplo.')},
+  'go-app':()=>irALaApp(),
+  'tour-menu':()=>Tour.menu(),
+  'tour-reset':()=>{Tour.done.clear();Tour.save();Tour.menu()},
+  'tour-continue':()=>{closeModal('m-stages');Tour.start(Tour.firstPending())}
+};
+document.addEventListener('click',e=>{
+  const g=e.target.closest('[data-go]');
+  if(g){closeModal('m-more');go(g.dataset.go);Tour.emit('go:'+g.dataset.go);return}
+  const a=e.target.closest('[data-act]');if(a&&ACT[a.dataset.act])ACT[a.dataset.act](a);
+  if(e.target.classList.contains('backdrop')&&e.target.id!=='m-stages')closeModal(e.target.id);
+  if(e.target.id==='m-stages')closeModal('m-stages');
+});
+document.addEventListener('submit',e=>{
+  e.preventDefault();
+  if(e.target.id==='expense-form'){
+    const desc=$('#e-desc').value.trim(),amount=Number($('#e-amount').value),c=$('#e-cat').value,rec=$('#e-rec').checked;
+    if(!desc||!(amount>0))return;
+    if(rec){S.rec.push({id:uid(),desc,amount,cat:c,freq:'Mensual · día '+new Date().getDate()});S.last={kind:'rec',amount,desc};}
+    else{S.gastos.unshift({id:uid(),desc,amount,cat:c,date:isoDay(new Date())});S.last={kind:'one',amount,desc};}
+    renderAll();toast(rec?'Quedó como recurrente pendiente.':'Gasto registrado.');Tour.emit('expense-added');closeModal('m-expense');
+  }
+  if(e.target.id==='col-form'){
+    S.col.compras.push({id:uid(),desc:$('#col-desc').value.trim(),amount:Number($('#col-amount').value),payer:$('#col-payer').value});
+    e.target.reset();renderAll();toast('Compra agregada: se recalcularon las transferencias.');
+  }
+});
+$('#q').addEventListener('input',e=>{S.q=e.target.value;renderMov()});
+$('#f').addEventListener('change',e=>{S.f=e.target.value;renderMov()});
+$('#debt-self').addEventListener('change',renderDebtPreview);
+$('#s-income').addEventListener('input',e=>{S.ingreso=Math.max(0,Number(e.target.value)||0);renderAll();Tour.refresh()});
+$('#s-cutoff').addEventListener('input',e=>{S.corte=Math.min(31,Math.max(1,Number(e.target.value)||1));renderAll();Tour.refresh()});
+function syncSettings(){$('#s-income').value=S.ingreso;$('#s-cutoff').value=S.corte;$('#f').innerHTML='<option value="all">Todas las categorías</option>'+CATS.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');$('#f').value=S.f;
+  $$('#income-type .opt').forEach(b=>b.classList.toggle('sel',b.dataset.t===S.tipo));$('#variable-note').hidden=S.tipo!=='variable'}
+
+/* ============================================================
+   TUTORIAL: etapas y pasos
+   ------------------------------------------------------------
+   Cada paso: stage, view, target (selector o función), title,
+   body (HTML o función), placement, modal (modal que debe estar
+   abierto), wait (evento que completa el paso), task (consigna),
+   interactive (deja usar el elemento resaltado).
+   ============================================================ */
+const STAGES=[
+  {id:'intro',name:'Bienvenida y bóveda',desc:'Qué es Saldo y cómo protege tus datos'},
+  {id:'setup',name:'Ingreso y ciclo',desc:'Configurar cuánto cobrás y cuándo cierra tu mes'},
+  {id:'dash',name:'El resumen',desc:'Presupuesto restante, proyección y categorías'},
+  {id:'spend',name:'Registrar gastos',desc:'Cargar un gasto y ver su efecto al instante'},
+  {id:'rec',name:'Gastos recurrentes',desc:'Confirmar o rechazar pagos que se repiten'},
+  {id:'cat',name:'Categorías y estadísticas',desc:'Entender en qué se va tu plata'},
+  {id:'save',name:'Ahorros',desc:'Cierre de ciclo automático y metas'},
+  {id:'col',name:'Compra colectiva',desc:'Dividir gastos de un grupo'},
+  {id:'debt',name:'Deudas',desc:'Llevar lo que te deben y lo que debés'},
+  {id:'rep',name:'Reportes y ajustes',desc:'Respaldos, informes y modo oscuro'}
+];
+const nav=()=>isMobile()?'#nav-mobile':'#nav-desktop';
+const STEPS=[
+ {stage:'intro',id:'welcome',center:true,title:'¡Bienvenido a Saldo!',body:`<p>Saldo te dice <b>cuánto te queda para gastar</b>, qué pasará a fin de mes y adónde se va tu plata.</p><p>Este recorrido tiene <b>10 etapas</b> y dura unos 5 minutos. Vas a probar cada función con <b>datos de ejemplo</b>: nada de lo que hagas acá toca tus datos reales.</p><p>Podés salir cuando quieras y retomarlo desde el botón <b>❓ Tutorial</b>.</p><div class="t-warn">(ATENCIÓN, ALGUNAS INTERFACES PUEDEN SER LIGERAMENTE DIFERENTES, SALDO ES UNA APP EN CONSTANTE EVOLUCIÓN.)</div>`},
+ {stage:'intro',id:'vault',center:true,title:'Tu bóveda cifrada',body:`<p>Todo lo que cargás se guarda <b>cifrado en tu propio dispositivo</b> (AES-256) con una contraseña maestra que solo vos conocés.</p><div class="t-mock">🔒 ••••••••••<span style="margin-left:auto;letter-spacing:0;font-size:11px;color:var(--muted)">Contraseña maestra</span></div><ul><li>No hay cuenta ni servidor: tus datos no salen de tu equipo.</li><li>Si la olvidás, <b>no se puede recuperar</b>: anotala en un lugar seguro.</li></ul>`},
+ {stage:'intro',id:'nav',v:()=>isMobile()?'mobile':'desktop',view:'dashboard',target:nav,placement:'right',title:'Navegación',body:()=>isMobile()?`<p>Abajo tenés lo principal: <b>Resumen, Gastos, Estadísticas y Ahorrado</b>. El resto (categorías, compra colectiva, deudas, reportes y configuración) está en <b>Más</b>.</p>`:`<p>En el menú lateral están todas las secciones. Las vamos a recorrer en orden, de las más usadas a las más específicas.</p><p>Abajo de todo vive la <b>Configuración</b>.</p>`},
+ {stage:'setup',id:'type',view:'settings',target:'#income-type',placement:'bottom',interactive:true,title:'Paso 1 · Tu tipo de ingreso',body:`<p>Lo primero que te pide Saldo al empezar:</p><ul><li><b>Fijo o programado:</b> tenés un sueldo base. El ciclo arranca solo con ese monto.</li><li><b>Variable:</b> sos freelancer o cobrás changas. El ciclo arranca en $0 y cargás cada ingreso.</li></ul>`,task:'Probá tocar las dos opciones.'},
+ {stage:'setup',id:'income',view:'settings',target:'#income-fields',placement:'top',interactive:true,title:'Paso 2 · Monto y día de corte',body:`<p><b>Ingreso neto</b>: lo que realmente te llega a la mano, ya sin descuentos.</p><p><b>Día de corte</b>: el día en que se reinicia tu ciclo (normalmente el día que cobrás). Tu mes de gastos va de un corte al siguiente, no del 1 al 30.</p>`,task:'Cambiá el ingreso y mirá cómo se actualiza el resumen más adelante.'},
+ {stage:'setup',id:'cycle',view:'dashboard',target:'#cycle-pill',placement:'bottom',title:'Paso 3 · El ciclo presupuestario',body:`<p>Acá ves el ciclo actual. Cuando llega el día de corte pasan tres cosas, <b>solas</b>:</p><ul><li>Lo que <b>sobró</b> se transfiere a <b>Ahorrado</b>.</li><li>El presupuesto vuelve a su monto base.</li><li>Arranca un ciclo nuevo.</li></ul>`},
+ {stage:'dash',id:'hero',p:()=>[money(S.ingreso),money(gastado()),money(restante())],view:'dashboard',target:'#hero',placement:'bottom',title:'Presupuesto restante',body:()=>`<p>Es el número más importante de Saldo:</p><div class="t-formula"><b>Restante</b> = ingreso − gastos confirmados<br>${money(S.ingreso)} − ${money(gastado())} = <b>${money(restante())}</b></div><p>La barra muestra cuánto de tu ingreso ya usaste.</p>`},
+ {stage:'dash',id:'proj',p:()=>[money(restante()),money(pendiente()),money(proyeccion())],view:'dashboard',target:'#projection-panel',placement:'left',title:'Proyección a fin de ciclo',body:()=>`<p>El restante te dice cómo estás <b>hoy</b>. La proyección te dice cómo vas a terminar:</p><div class="t-formula"><b>Proyección</b> = restante − recurrentes pendientes<br>${money(restante())} − ${money(pendiente())} = <b>${money(proyeccion())}</b></div><p>Así no te llevás sorpresas con alquileres, suscripciones y otros pagos que todavía no ocurrieron.</p>`},
+ {stage:'dash',id:'donut',view:'dashboard',target:'#donut-panel',placement:'top',title:'Gastos por categoría',body:`<p>El gráfico reparte lo que gastaste por categoría, y al lado tenés la <b>actividad reciente</b>. Es la forma más rápida de ver en qué se está yendo la plata.</p>`},
+ {stage:'spend',id:'open',view:'dashboard',target:'#new-expense-btn',placement:'bottom',interactive:true,wait:'open:m-expense',title:'Registrar un gasto',body:`<p>Cargar un gasto es lo que más vas a hacer en Saldo, y toma 10 segundos.</p>`,task:'👉 Tocá “＋ Nuevo gasto”.'},
+ {stage:'spend',id:'form',view:'dashboard',modal:'m-expense',target:'#m-expense .modal',placement:'left',interactive:true,wait:'expense-added',title:'Completá el formulario',body:`<p>Descripción, importe y categoría. Hay dos tipos de gasto:</p><ul><li><b>Único</b>: pasó una vez y resta del presupuesto ya mismo.</li><li><b>Recurrente</b>: se repite cada mes. No resta hasta que lo confirmes (lo vemos en la etapa 5).</li></ul>`,task:'👉 Cargá un gasto único, por ejemplo “Panadería · $3.500”.'},
+ {stage:'spend',id:'result',v:()=>S.last?(S.last.kind==='one'?'one':'rec'):'none',p:()=>S.last?[esc(S.last.desc),money(S.last.amount),money(restante()),money(proyeccion())]:[],view:'dashboard',target:'#hero',placement:'bottom',title:'¡Mirá el efecto!',body:()=>{const l=S.last;if(!l)return '<p>Cada gasto que cargás impacta enseguida en el restante, la proyección y el gráfico.</p>';
+   if(l.kind==='one')return `<p>Registraste <b>${esc(l.desc)}</b> por ${money(l.amount)}. El restante bajó a <b>${money(restante())}</b> y la proyección a <b>${money(proyeccion())}</b>.</p>`;
+   return `<p>Como <b>${esc(l.desc)}</b> es recurrente, <b>no restó nada todavía</b>: quedó en pendientes y la proyección bajó a <b>${money(proyeccion())}</b>.</p>`},},
+ {stage:'spend',id:'movs',view:'expenses',target:'#mov-panel',placement:'top',interactive:true,title:'Movimientos',body:`<p>Todos los gastos del ciclo, con <b>buscador</b> y <b>filtro por categoría</b>.</p><ul><li><b>✎</b> corrige un gasto (queda registrado qué cambió y por qué).</li><li><b>×</b> lo elimina.</li></ul>`,task:'Probá buscar “super” en el buscador.'},
+ {stage:'rec',id:'pending',view:'dashboard',target:'#recurring-card',placement:'top',interactive:true,wait:'recurring-resolved',onEnter:()=>{if(!S.rec.length)S.rec.push({id:uid(),desc:'Internet',amount:14000,cat:'services',freq:'Mensual · día 12'});renderAll()},title:'Recurrentes pendientes',body:`<p>Alquiler, gimnasio, streaming… Saldo los <b>proyecta</b> pero no los descuenta hasta que vos confirmes:</p><ul><li><b>✓ Aprobar:</b> ya se pagó. Pasa a gastos y resta del presupuesto.</li><li><b>Rechazar:</b> no se va a pagar este ciclo. Sale de la proyección.</li></ul>`,task:'👉 Aprobá o rechazá uno.'},
+ {stage:'rec',id:'rec-result',v:()=>S.last&&S.last.kind==='rec-ok'?'ok':(S.last&&S.last.kind==='rec-no'?'no':'none'),p:()=>S.last?[esc(S.last.desc),money(proyeccion())]:[],view:'dashboard',target:'#projection-panel',placement:'left',title:'La proyección se ajustó',body:()=>{const l=S.last;const t=l&&l.kind==='rec-ok'?`Aprobaste <b>${esc(l.desc)}</b>: pasó a gastos, el restante bajó y la proyección quedó en <b>${money(proyeccion())}</b>.`:l&&l.kind==='rec-no'?`Rechazaste <b>${esc(l.desc)}</b>: dejó de proyectarse y la proyección subió a <b>${money(proyeccion())}</b>.`:`Cada decisión sobre un recurrente actualiza la proyección.`;return `<p>${t}</p><p>Por eso conviene revisar esta tarjeta cada vez que pagás algo fijo.</p>`}},
+ {stage:'cat',id:'cats',view:'categories',target:'#cat-grid',placement:'top',title:'Categorías',body:`<p>Cada tarjeta cuenta cuántos gastos <b>únicos</b> y <b>recurrentes</b> tiene. Al tocar una, Movimientos se filtra y muestra solo esa categoría.</p><p>En la app podés <b>crear, editar y borrar</b> categorías, y elegir color e ícono.</p>`},
+ {stage:'cat',id:'stats',view:'stats',target:'#stats-bars',placement:'right',title:'Estadísticas',body:`<p>Las barras comparan categorías y a la derecha Saldo te resume lo importante: qué categoría lidera, tu <b>gasto promedio por día</b> y si vas a buen <b>ritmo</b> comparado con el calendario del ciclo.</p>`},
+ {stage:'save',id:'sav-intro',view:'savings',target:'#sav-top',placement:'bottom',title:'Ahorrado: se llena solo',body:`<p>Al cerrar cada ciclo, <b>todo lo que sobró</b> se suma automáticamente a tu saldo ahorrado. No tenés que hacer nada.</p><p>También podés <b>ingresar o extraer</b> ahorro a mano, y cada movimiento queda en el historial.</p>`},
+ {stage:'save',id:'sim',view:'savings',target:'#sim-btn',placement:'bottom',interactive:true,wait:'cycle-simulated',title:'Simulemos un cierre',body:`<p>En la app real esto pasa solo cuando llega el día de corte. Acá lo disparamos a mano para que lo veas.</p>`,task:'👉 Tocá “Simular cierre de ciclo”.'},
+ {stage:'save',id:'goals',v:()=>S.simulado?'sim':'none',p:()=>[money(S.lastSim||0)],view:'savings',target:'#goals',placement:'left',title:'Metas de ahorro',body:()=>`<p>${S.simulado?`Se transfirieron <b>${money(S.lastSim||0)}</b> a tu ahorro y la meta avanzó. `:''}Cada meta tiene su barra de progreso y una estimación realista basada en <b>tu promedio real</b> de los últimos ciclos, no en deseos.</p>`},
+ {stage:'col',id:'col-people',view:'collective',target:'#col-config',placement:'right',interactive:true,title:'Compra colectiva',body:`<p>Para viajes, asados o cualquier gasto grupal: cargás los <b>participantes</b> y cada <b>compra</b> con quién la pagó. En la app también podés <b>excluir personas</b> de una compra puntual.</p>`,task:'Agregá una compra, por ejemplo “Postre · $4.000” pagada por Carla.'},
+ {stage:'col',id:'col-result',view:'collective',target:'#col-result',placement:'left',title:'Quién le transfiere a quién',body:`<p>Saldo calcula la parte de cada uno y propone el <b>mínimo de transferencias</b> para que todos queden a mano. Abajo ves el <b>balance</b> de cada persona: positivo si puso de más, negativo si debe.</p>`},
+ {stage:'debt',id:'debt-open',view:'collective',target:'#save-debts-btn',placement:'bottom',interactive:true,wait:'open:m-debts',title:'Del reparto a tus deudas',body:`<p>Ya sabés quién debe qué. Con este botón el resultado pasa <b>automáticamente a Deudas</b>, sin cargarlo a mano.</p>`,task:'👉 Tocá “Guardar en deudas”.'},
+ {stage:'debt',id:'debt-confirm',view:'collective',modal:'m-debts',target:'#m-debts .modal',placement:'left',interactive:true,wait:'debts-saved',title:'¿Quién sos vos?',body:`<p>Saldo necesita saber cuál de los participantes sos para decidir el sentido de cada deuda:</p><ul><li>Si otro tiene que pagarte → <b>te deben</b>.</li><li>Si vos tenés que transferir → <b>debés</b>.</li></ul><p>Solo se guardan las que te involucran. Si volvés a guardar la misma compra, se actualiza en vez de duplicarse.</p>`,task:'👉 Elegí “Yo” y confirmá.'},
+ {stage:'debt',id:'debt-view',v:()=>S.deudas.length?'has':'none',view:'debts',target:'#debt-list',placement:'left',interactive:true,title:'Gestión de deudas',body:()=>`<p>Las deudas se agrupan <b>por persona</b> con un <b>balance neto</b>: lo que te debe menos lo que le debés. Arriba tenés los totales generales.</p><p>${S.deudas.length?'Acá aparecen las que acabás de guardar.':'Todavía no hay deudas: volvé a Compra colectiva y guardá el resultado.'} También podés eliminar un movimiento con la ×.</p>`},
+ {stage:'rep',id:'reports',view:'reports',target:'#rep-grid',placement:'top',title:'Reportes y respaldos',body:`<p>Tres herramientas clave:</p><ul><li><b>Informe PDF</b> para imprimir o compartir.</li><li><b>Exportar respaldo</b>: un archivo con todo.</li><li><b>Importar respaldo</b>: restaurás tus datos en cualquier dispositivo.</li></ul><p>Hacé un respaldo antes de actualizar la app o cambiar de equipo.</p>`},
+ {stage:'rep',id:'dark',view:'settings',target:'#dark-row',placement:'top',interactive:true,title:'Personalizá tu Saldo',body:`<p>En <b>Configuración</b> también cambiás el ingreso y el día de corte, y activás el <b>modo oscuro</b>.</p>`,task:'Probá el modo oscuro (podés volver a apagarlo).'},
+ {stage:'rep',id:'end',view:'dashboard',center:true,title:'¡Completaste el recorrido!',body:`<p>Ya conocés cada etapa de Saldo:</p><ul><li>Ingreso y ciclo → <b>resumen</b> y proyección</li><li>Gastos únicos y <b>recurrentes</b></li><li>Categorías y estadísticas</li><li><b>Ahorros</b> automáticos y metas</li><li>Compra colectiva → <b>deudas</b></li><li>Reportes y respaldos</li></ul><p>Cuando quieras, tocá <b>Ir a la aplicación principal</b> para empezar con tus propios datos. Si preferís, seguí explorando la demo o repasá cualquier etapa desde <b>❓ Tutorial</b>.</p>`}
+];
+
+/* Cuerpo del paso en el idioma activo. Clave: tut.<id>.body[.<variante>]; los datos variables van como {1}, {2}… (st.p). */
+function bodyHtml(st){
+  const es=typeof st.body==='function'?st.body():st.body, lang=idiomaActual();
+  if(lang==='es')return es;
+  const d=SaldoI18n._dic[lang]||{}, k='tut.'+st.id+'.body'+(st.v?'.'+st.v():'');
+  const tr=d[k]; if(tr===undefined)return es;
+  const p=st.p?st.p():[]; return tr.replace(/\{(\d+)\}/g,(m,i)=>p[i-1]!==undefined?p[i-1]:m);
+}
+function langBar(){return '<div class="t-lang" data-no-i18n>'+Object.entries(IDIOMAS).map(([c,v])=>`<button type="button" data-lang="${c}" class="${c===idiomaActual()?'on':''}">${v.nombre}</button>`).join('')+'</div>'}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-lang]');if(b)SaldoI18n.establecerIdioma(b.dataset.lang)});
+document.addEventListener('saldo-idioma',()=>{renderAll();if(Tour.active){Tour.renderCard();Tour.layout()}});
+const Tour={active:false,i:0,done:new Set(),waitDone:false,timer:null,
+  load(){try{JSON.parse(store('saldo-tour-done')||'[]').forEach(x=>this.done.add(x))}catch(e){}},
+  save(){store('saldo-tour-done',JSON.stringify([...this.done]))},
+  stageSteps(id){return STEPS.map((s,i)=>({s,i})).filter(x=>x.s.stage===id)},
+  stageDone(id){return this.stageSteps(id).every(x=>this.done.has(x.s.id))},
+  firstPending(){const p=STAGES.find(s=>!this.stageDone(s.id));return p?this.stageSteps(p.id)[0].i:0},
+  start(i=0){this.active=true;document.body.classList.add('tour-on');$('#tour').hidden=false;$('#fab').hidden=true;$('#exit-fab').hidden=true;closeModal('m-stages');this.show(i)},
+  show(i){
+    clearTimeout(this.timer);this.i=i;this.waitDone=false;const st=STEPS[i];
+    closeModals(st.modal);if(st.view)go(st.view);if(st.modal){if(st.modal==='m-debts'&&!$('#debt-self').options.length)ACT['save-debts-open']();else openModal(st.modal,true)}
+    st.onEnter&&st.onEnter();this.renderCard();
+    requestAnimationFrame(()=>{this.scrollTo();this.layout();setTimeout(()=>this.layout(),150)});
+  },
+  renderCard(){
+    const st=STEPS[this.i],n=STEPS.length,stage=STAGES.findIndex(s=>s.id===st.stage);
+    $('#t-stage').textContent=`Etapa ${stage+1} de ${STAGES.length} · ${STAGES[stage].name}`;
+    $('#t-title').textContent=st.title;$('#t-body').innerHTML=bodyHtml(st);if(st.id==='welcome')$('#t-body').insertAdjacentHTML('beforeend',langBar());
+    const task=$('#t-task');task.hidden=!st.task;task.className='t-task';task.textContent=st.task||'';
+    $('#t-bar').style.width=((this.i+1)/n*100)+'%';$('#t-count').textContent=`${this.i+1} / ${n}`;
+    $('#t-prev').disabled=this.i===0;this.renderNext();
+  },
+  renderNext(){const st=STEPS[this.i],b=$('#t-next'),waiting=st.wait&&!this.waitDone;
+    b.textContent=waiting?'Omitir paso':(this.i===STEPS.length-1?'Ir a la aplicación principal →':'Siguiente');b.className='btn sm '+(waiting?'ghost':'primary')},
+  emit(ev){
+    if(!this.active)return;const st=STEPS[this.i];if(st.wait!==ev||this.waitDone)return;
+    this.waitDone=true;const t=$('#t-task');t.hidden=false;t.className='t-task ok';t.textContent='✓ ¡Perfecto! Seguimos…';this.renderNext();
+    this.timer=setTimeout(()=>this.next(),ev.startsWith('open:')?500:1000);
+  },
+  next(){clearTimeout(this.timer);this.done.add(STEPS[this.i].id);this.save();if(this.i>=STEPS.length-1)return irALaApp();this.show(this.i+1)},
+  prev(){clearTimeout(this.timer);if(this.i>0)this.show(this.i-1)},
+  end(done){clearTimeout(this.timer);this.active=false;$('#exit-fab').hidden=false;document.body.classList.remove('tour-on');document.body.classList.remove('tour-modal-mobile');$('#tour').hidden=true;$('#fab').hidden=false;closeModals();store('saldo-tour-seen','1');if(done){toast('🎉 ¡Tutorial completado!');}},
+  resolve(){const st=STEPS[this.i];if(st.center)return null;const sel=typeof st.target==='function'?st.target():st.target;return $$(sel).find(e=>e.getClientRects().length)||null},
+  scrollTo(){const el=this.resolve();if(!el||el.closest('.sidebar,.bottombar,.backdrop'))return;const r=el.getBoundingClientRect(),top=isMobile()?84:110;
+    if(r.top<top-40||r.bottom>innerHeight-(isMobile()?innerHeight*.5:80))window.scrollTo(0,Math.max(0,scrollY+r.top-top))},
+  refresh(){if(this.active)requestAnimationFrame(()=>this.layout())},
+  layout(){
+    if(!this.active)return;const st=STEPS[this.i],el=this.resolve(),card=$('#t-card'),hole=$('#t-hole'),vw=innerWidth,vh=innerHeight;
+    const B={top:$('#tb-top'),bottom:$('#tb-bottom'),left:$('#tb-left'),right:$('#tb-right'),hole:$('#tb-hole')};
+    const box=(n,l,t,w,h)=>Object.assign(n.style,{left:l+'px',top:t+'px',width:Math.max(0,w)+'px',height:Math.max(0,h)+'px',display:'block'});
+    document.body.classList.toggle('tour-modal-mobile',isMobile()&&!!st.modal);card.classList.remove('top');
+    if(!el){hole.style.display='none';$('#t-dim').style.display='block';Object.values(B).forEach(n=>n.style.display='none');box(B.top,0,0,vw,vh);
+      card.classList.add('center');card.classList.remove('mobile');card.style.left=card.style.top='';return}
+    $('#t-dim').style.display='none';card.classList.remove('center');
+    const r=el.getBoundingClientRect(),p=8,x=Math.max(0,r.left-p),y=Math.max(0,r.top-p),w=Math.min(vw-x,r.width+2*p),h=Math.min(vh-y,r.height+2*p);
+    Object.assign(hole.style,{display:'block',left:x+'px',top:y+'px',width:w+'px',height:h+'px'});
+    box(B.top,0,0,vw,y);box(B.bottom,0,y+h,vw,vh-y-h);box(B.left,0,y,x,h);box(B.right,x+w,y,vw-x-w,h);
+    if(st.interactive)B.hole.style.display='none';else box(B.hole,x,y,w,h);
+    if(isMobile()){card.classList.add('mobile');card.classList.toggle('top',!!st.modal||(y+h/2>vh*.55));card.style.left=card.style.top='';return}
+    card.classList.remove('mobile');const cw=card.offsetWidth,ch=card.offsetHeight,g=14,m=12,cl=(v,a,b)=>Math.min(Math.max(v,a),b);
+    const O={right:()=>({l:x+w+g,t:cl(y,m,vh-ch-m),ok:x+w+g+cw<=vw-m}),left:()=>({l:x-cw-g,t:cl(y,m,vh-ch-m),ok:x-cw-g>=m}),
+      bottom:()=>({l:cl(x,m,vw-cw-m),t:y+h+g,ok:y+h+g+ch<=vh-m}),top:()=>({l:cl(x,m,vw-cw-m),t:y-ch-g,ok:y-ch-g>=m})};
+    for(const k of [...new Set([st.placement,'right','bottom','left','top'])]){const o=O[k]();if(o.ok){card.style.left=o.l+'px';card.style.top=o.t+'px';return}}
+    card.style.left=(vw-cw-m)+'px';card.style.top=(vh-ch-m)+'px';
+  },
+  menu(){
+    $('#stage-list').innerHTML=STAGES.map((s,n)=>{const d=this.stageDone(s.id);return `<div class="stage-item"><div class="stage-n ${d?'done':''}">${d?'✓':n+1}</div><div class="info"><strong style="white-space:normal">${esc(s.name)}</strong><span>${esc(s.desc)}</span></div><button class="btn ghost sm" data-stage="${s.id}">${d?'Repasar':'Ir'}</button></div>`}).join('');
+    const all=STAGES.every(s=>this.stageDone(s.id));$('#stage-continue').textContent=all?'Repetir todo':(this.done.size?'Continuar':'Empezar');
+    openModal('m-stages',true);
+  }
+};
+$('#stage-list').addEventListener('click',e=>{const b=e.target.closest('[data-stage]');if(b)Tour.start(Tour.stageSteps(b.dataset.stage)[0].i)});
+$('#t-next').addEventListener('click',()=>Tour.next());
+$('#t-prev').addEventListener('click',()=>Tour.prev());
+$('#t-close').addEventListener('click',()=>Tour.end(false));
+$('#t-menu').addEventListener('click',()=>Tour.menu());
+['resize','scroll'].forEach(ev=>addEventListener(ev,()=>Tour.refresh(),{passive:true}));
+addEventListener('keydown',e=>{if(!Tour.active)return;
+  if(e.key==='Escape'){if(!$('#m-stages').hidden)closeModal('m-stages');else Tour.end(false)}
+  else if($('#m-stages').hidden&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)){if(e.key==='ArrowRight')Tour.next();if(e.key==='ArrowLeft')Tour.prev()}});
+
+/* ============================================================
+   ARRANQUE
+   ============================================================ */
+seed();Tour.load();fillExpenseForm();syncSettings();go('dashboard');
+$('#exit-fab').hidden=true;
+Tour.start(0); // el tutorial es lo primero que se ve
+</script>
+</body>
+</html>

@@ -1,98 +1,175 @@
 /**
  * ============================================================
- *  CICLOS
+ *  CICLOS PRESUPUESTARIOS
  * ------------------------------------------------------------
- *  Saldo no trabaja con "meses calendario" sino con "ciclos":
- *  un período que va desde el día de corte (state.cutoffDay)
- *  hasta el día anterior al próximo corte. Este módulo calcula
- *  el inicio/fin del ciclo actual y cierra automáticamente los
- *  ciclos ya terminados, moviendo lo que sobró al ahorro.
+ *  Maneja las fechas de corte. Cada vez que pasa la "fecha de
+ *  corte" (cutoffDay), el dinero que sobró del mes se envía
+ *  automáticamente al saldo de Ahorros.
  * ============================================================
  */
 
-// Fecha en la que arranca el ciclo actual (según el día de corte configurado).
-function obtenerInicioCiclo() {
-  const ahora = fechaEfectiva();
-  let anio = ahora.getFullYear(), mes = ahora.getMonth();
-  if (ahora.getDate() < Number(estado.cutoffDay || 1)) mes -= 1;
-  return new Date(anio, mes, Number(estado.cutoffDay || 1));
+function fechaEfectiva() {
+  if (estado.dateMode === "debug" && estado.debugDate) {
+    const arr = estado.debugDate.split("-");
+    return new Date(Number(arr[0]), Number(arr[1]) - 1, Number(arr[2]), 12, 0, 0);
+  }
+  return new Date();
 }
 
-// Último día del ciclo actual.
-function obtenerFinCiclo() {
-  const fin = new Date(obtenerInicioCiclo());
-  fin.setMonth(fin.getMonth() + 1);
+function hoyISO() {
+  return fechaEfectiva().toISOString().slice(0, 10);
+}
+
+function hoyDelSistemaISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function diasDelMes(anio, mes) {
+  return new Date(anio, mes + 1, 0).getDate();
+}
+
+function obtenerInicioCiclo(fecha = fechaEfectiva()) {
+  const diaCorte = Number(estado.cutoffDay || 1);
+  let anio = fecha.getFullYear();
+  let mes = fecha.getMonth();
+  if (fecha.getDate() < diaCorte) {
+    mes -= 1;
+    if (mes < 0) { mes = 11; anio -= 1; }
+  }
+  const maxDias = diasDelMes(anio, mes);
+  return new Date(anio, mes, Math.min(diaCorte, maxDias), 12, 0, 0);
+}
+
+function obtenerFinCiclo(fecha = fechaEfectiva()) {
+  const inicio = obtenerInicioCiclo(fecha);
+  let anio = inicio.getFullYear();
+  let mes = inicio.getMonth() + 1;
+  if (mes > 11) { mes = 0; anio += 1; }
+  const diaCorte = Number(estado.cutoffDay || 1);
+  const maxDias = diasDelMes(anio, mes);
+  const diaFin = Math.min(diaCorte, maxDias);
+  const fin = new Date(anio, mes, diaFin, 12, 0, 0);
   fin.setDate(fin.getDate() - 1);
+  fin.setHours(23, 59, 59);
   return fin;
 }
 
-// Representa una fecha como clave "AAAA-MM-DD" (para comparar/guardar).
-function claveFechaCiclo(fecha) {
-  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}`;
+function claveFechaCiclo(fecha = fechaEfectiva()) {
+  return obtenerInicioCiclo(fecha).toISOString().slice(0, 10);
 }
 
-// ¿El gasto pertenece al ciclo que está corriendo ahora mismo?
+function claveDeHoy() {
+  return hoyISO();
+}
+
 function esCicloActual(gasto) {
-  const fecha = new Date(`${gasto.date}T12:00:00`);
-  return fecha >= obtenerInicioCiclo() && fecha <= obtenerFinCiclo();
-}
-
-// Fecha en la que arrancará el próximo ciclo (usada al programar un ingreso futuro).
-function proximaFechaCiclo() {
+  if (!gasto.date) return false;
+  const fechaGasto = new Date(gasto.date + "T12:00:00");
   const inicio = obtenerInicioCiclo();
-  return new Date(inicio.getFullYear(), inicio.getMonth() + 1, Number(estado.cutoffDay || 1));
+  const fin = obtenerFinCiclo();
+  inicio.setHours(0, 0, 0, 0);
+  fin.setHours(23, 59, 59, 999);
+  return fechaGasto >= inicio && fechaGasto <= fin;
 }
 
-/**
- * Revisa si hay ciclos anteriores que ya terminaron y todavía no
- * se "cerraron". Por cada uno, calcula lo que sobró del
- * presupuesto y lo transfiere automáticamente al ahorro,
- * dejando un registro en el historial de ahorros.
- */
 function cerrarCiclosCompletados() {
-  if (!estado.onboardingComplete) return;
-  const inicioActual = obtenerInicioCiclo();
+  // Permite cerrar ciclos si hay ingreso configurado o si está en modo variable (ingreso base $0 intencional)
+  if ((!estado.income && estado.incomeType !== "variable") || !estado.onboardingComplete) return;
+
+  const inicioDeEsteMes = claveFechaCiclo(fechaEfectiva());
+
+  if (estado.testCycleOverride) {
+    estado.lastCycleStart = estado.testCycleOverride;
+    estado.testCycleOverride = null;
+    guardarEstado();
+  }
 
   if (!estado.lastCycleStart) {
-    estado.lastCycleStart = claveFechaCiclo(inicioActual);
+    estado.lastCycleStart = inicioDeEsteMes;
+    
+    // === NUEVO: Aseguramos que haya un registro inicial al instalar la app ===
+    if (!estado.incomeHistory) estado.incomeHistory = [];
+    if (estado.incomeHistory.length === 0) {
+      estado.incomeHistory.push({
+        amount: estado.income,
+        type: "current",
+        date: hoyISO(),
+        reason: "Presupuesto inicial"
+      });
+    }
+    
     guardarEstado();
     return;
   }
 
-  let inicioAnterior = new Date(`${estado.lastCycleStart}T12:00:00`);
-  let huboCambios = false;
+  if (inicioDeEsteMes !== estado.lastCycleStart) {
+    // Limpiar el aviso de ingreso manual del mes pasado
+    estado.incomeNotice = ""; 
+    
+    let fechaInicioGuardada = new Date(estado.lastCycleStart + "T12:00:00");
+    let ciclosProcesados = 0;
 
-  while (inicioAnterior < inicioActual) {
-    const siguienteInicio = new Date(inicioAnterior);
-    siguienteInicio.setMonth(siguienteInicio.getMonth() + 1);
+    while (claveFechaCiclo(fechaInicioGuardada) !== inicioDeEsteMes && ciclosProcesados < 60) {
+      const inicio = obtenerInicioCiclo(fechaInicioGuardada);
+      const fin = obtenerFinCiclo(fechaInicioGuardada);
 
-    const gastosDelCiclo = estado.expenses.filter(item =>
-      !item.recurring &&
-      new Date(`${item.date}T12:00:00`) >= inicioAnterior &&
-      new Date(`${item.date}T12:00:00`) < siguienteInicio
-    );
-    const gastado = gastosDelCiclo.reduce((suma, item) => suma + Number(item.amount), 0);
-    const restante = Math.max(ingresoActual() - gastado, 0);
+      const presupuestoBase = estado.currentCycleIncome == null ? Number(estado.income || 0) : Number(estado.currentCycleIncome);
+      const ingresoRecurrenteMismoCiclo = estado.expenses.filter(item => item.recurring && item.recurringType === "income").reduce((total, plantilla) => {
+        return total + fechasOcurrenciaRecurrente(plantilla, inicio, fin).reduce((suma, f) => {
+          const c = claveConfirmacionRecurrente(plantilla, f);
+          return suma + (estado.recurringConfirmations[c] === "yes" ? Number(plantilla.amount || 0) : 0);
+        }, 0);
+      }, 0);
 
-    estado.savingsBalance += restante;
-    estado.savingsHistory.push({
-      id: crypto.randomUUID(),
-      start: claveFechaCiclo(inicioAnterior),
-      end: claveFechaCiclo(new Date(siguienteInicio.getTime() - 86400000)),
-      income: ingresoActual(),
-      spent: gastado,
-      remaining: restante,
-      transferred: restante,
-      date: hoyISO()
-    });
+      const presupuestoMensual = presupuestoBase + ingresoRecurrenteMismoCiclo;
 
-    inicioAnterior = siguienteInicio;
-    huboCambios = true;
-  }
+      const gastosDelMes = estado.expenses.filter(g => {
+        if (g.recurring) return false;
+        if (!g.date) return false;
+        const d = new Date(g.date + "T12:00:00");
+        inicio.setHours(0, 0, 0, 0);
+        fin.setHours(23, 59, 59, 999);
+        return d >= inicio && d <= fin;
+      }).reduce((suma, g) => suma + Number(g.amount || 0), 0);
 
-  estado.lastCycleStart = claveFechaCiclo(inicioActual);
-  if (huboCambios) {
-    estado.currentCycleIncome = null;
+      const remanente = presupuestoMensual - gastosDelMes;
+
+      if (remanente > 0) {
+        estado.savingsBalance = Number(estado.savingsBalance || 0) + remanente;
+        estado.savingsHistory = estado.savingsHistory || [];
+        estado.savingsHistory.push({
+          start: inicio.toISOString().slice(0, 10),
+          end: fin.toISOString().slice(0, 10),
+          transferred: remanente,
+          date: hoyISO()
+        });
+      }
+
+      // Reiniciamos el "Ingreso Actual" para el nuevo ciclo
+      estado.currentCycleIncome = null;
+
+      // Saltamos al ciclo siguiente
+      fechaInicioGuardada.setDate(fechaInicioGuardada.getDate() + 32);
+      fechaInicioGuardada = obtenerInicioCiclo(fechaInicioGuardada);
+      ciclosProcesados++;
+    }
+
+    estado.lastCycleStart = inicioDeEsteMes;
+    
+    // === NUEVO: Crear un registro visual del presupuesto arrastrado para el nuevo ciclo ===
+    if (!estado.incomeHistory) estado.incomeHistory = [];
+    
+    // Solo agregamos el registro si no aplicamos un "pendingIncome" en este exacto ciclo,
+    // ya que aplicarIngresoPendiente() ya genera su propio registro.
+    if (!estado.pendingIncome || inicioDeEsteMes < new Date(`${estado.pendingIncome.effectiveDate}T00:00:00`).toISOString().slice(0, 10)) {
+        estado.incomeHistory.push({
+          amount: estado.income,
+          type: "current",
+          date: hoyISO(), // Fecha de hoy (inicio del nuevo ciclo)
+          reason: "Presupuesto base del ciclo"
+        });
+    }
+
     guardarEstado();
   }
 }

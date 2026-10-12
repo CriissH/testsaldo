@@ -9,6 +9,16 @@
  * ============================================================
  */
 
+// Filtro recibido desde la navegación de la vista "Categorías".
+var filtroCategoriaGastos = "all";
+
+function abrirGastosDeCategoria(categoryId) {
+  if (!estado.categories.some(categoria => categoria.id === categoryId)) return;
+  filtroCategoriaGastos = categoryId;
+  navegar("expenses");
+  renderizarGastos();
+}
+
 // Gastos (de una vez o generados por un recurrente) que caen dentro del ciclo actual.
 function gastosDelCicloActual() { return estado.expenses.filter(esCicloActual); }
 
@@ -75,7 +85,8 @@ function abrirEditorDeGasto(id) {
 // Dibuja la tabla de gastos (vista "Gastos"), aplicando el buscador y el filtro por categoría.
 function renderizarGastos() {
   const consulta = (document.getElementById("expense-search")?.value || "").toLowerCase();
-  const filtro = document.getElementById("expense-filter")?.value || "all";
+  const selectorFiltro = document.getElementById("expense-filter");
+  const filtro = filtroCategoriaGastos !== "all" ? filtroCategoriaGastos : selectorFiltro?.value || "all";
 
   const gastos = gastosConfirmados()
     .filter(item => item.description.toLowerCase().includes(consulta) && (filtro === "all" || item.categoryId === filtro))
@@ -88,7 +99,7 @@ function renderizarGastos() {
     const esEtiquetaRecurrente = item.recurring || item.recurringSourceId;
     const etiquetaTipo = esEtiquetaRecurrente
       ? '<span class="recurring-tag">Recurrente</span>'
-      : '<span class="muted">Único</span>';
+      : '<span class="unique-tag">Único</span>';
 
     return `<tr>
       <td><strong>${escaparHtml(item.description)}</strong>${etiquetaModificacionGasto(item)}</td>
@@ -105,10 +116,69 @@ function renderizarGastos() {
 
   document.getElementById("expense-empty").style.display = gastos.length ? "none" : "block";
 
-  const selectorFiltro = document.getElementById("expense-filter");
   const filtroActual = selectorFiltro.value;
   selectorFiltro.innerHTML = `<option value="all">Todas las categorías</option>${estado.categories.map(categoria => `<option value="${categoria.id}">${escaparHtml(categoria.name)}</option>`).join("")}`;
-  selectorFiltro.value = estado.categories.some(categoria => categoria.id === filtroActual) ? filtroActual : "all";
+  const filtroInicial = filtroCategoriaGastos !== "all" ? filtroCategoriaGastos : filtroActual;
+  selectorFiltro.value = estado.categories.some(categoria => categoria.id === filtroInicial) ? filtroInicial : "all";
+  filtroCategoriaGastos = selectorFiltro.value;
 
   renderizarWidgetGastosRecurrentes();
+}
+
+function renderizarWidgetGastosRecurrentes() {
+  const widgetEscritorio = document.getElementById("expenses-recurring-widget");
+  const widgetMovil = document.getElementById("mobile-recurring-widget");
+  
+  const plantillas = estado.expenses.filter(item => item.recurring);
+  const gastos = plantillas.filter(item => item.recurringType !== "income").length;
+  const unicos = gastosDelCicloActual().filter(item => !item.recurring && !item.recurringSourceId).length;
+
+  // Si no hay datos, ocultamos ambos widgets
+  if (plantillas.length === 0 && unicos === 0) {
+    if (widgetEscritorio) widgetEscritorio.hidden = true;
+    if (widgetMovil) widgetMovil.hidden = true;
+    return;
+  }
+
+  // Activamos y poblamos el nuevo widget móvil
+  if (widgetMovil) {
+    widgetMovil.hidden = false;
+    const subtitulo = document.getElementById("mobile-recurring-subtitle");
+    if (subtitulo) {
+      subtitulo.textContent = `${unicos} ${unicos === 1 ? "único" : "únicos"} · ${gastos} ${gastos === 1 ? "recurrente" : "recurrentes"}`;
+    }
+  }
+
+  // Activamos y poblamos el widget original de escritorio
+  if (widgetEscritorio) {
+    if (plantillas.length === 0) {
+      widgetEscritorio.hidden = true;
+      return;
+    }
+    widgetEscritorio.hidden = false;
+    const plantillasGasto = plantillas.filter(item => item.recurringType !== "income");
+    const visibles = plantillasGasto.slice(0, 3);
+    const listaDestop = document.getElementById("expenses-recurring-list");
+    if (listaDestop) {
+      listaDestop.innerHTML = visibles.map(plantilla => {
+        const categoria = obtenerCategoria(plantilla.categoryId);
+        const dias = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+        const frecuencia = plantilla.frequency === "daily" 
+          ? "Diario" 
+          : plantilla.frequency === "monthly" 
+            ? `Mensual · día ${plantilla.monthlyDay}` 
+            : `Cada ${dias[Number(plantilla.weekday)] || "semana"}`;
+        return `<div class="sidebar-recurring-item">
+          <button class="sidebar-recurring-main" data-edit-recurring="${plantilla.id}">
+            <span class="sidebar-recurring-dot" style="background:${categoria.color}"></span>
+            <span class="sidebar-recurring-info">
+              <strong>${escaparHtml(plantilla.description)}</strong>
+              <small>${frecuencia} · ${formatearMoneda(plantilla.amount)}</small>
+            </span>
+            <span class="sidebar-edit-icon" title="Editar recurrente">✎</span>
+          </button>
+        </div>`;
+      }).join("");
+    }
+  }
 }

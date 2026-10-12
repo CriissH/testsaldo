@@ -3,42 +3,111 @@
  *  RECURRENTES (gastos e ingresos que se repiten)
  * ------------------------------------------------------------
  *  Un gasto o ingreso "recurrente" es una plantilla (guardada
- *  dentro de estado.expenses con recurring=true) que puede
- *  repetirse todos los días, un día fijo de la semana, o un día
- *  fijo del mes. Cada vez que el usuario lo confirma ("yes"), se
- *  genera un gasto real de una sola vez conectado a esa
- *  plantilla mediante recurringSourceId.
- *
- *  El "estado" de cada ocurrencia (aprobado/rechazado/pendiente)
- *  se guarda en estado.recurringConfirmations, usando una clave
- *  que combina el id de la plantilla con la fecha (o el mes, si
- *  es mensual).
+ *  dentro de estado.expenses con recurring=true).
  * ============================================================
  */
 
-// Clave única para guardar la confirmación de una plantilla en una fecha dada.
-function claveConfirmacionRecurrente(plantilla, fechaReferencia = new Date()) {
-  if (plantilla.frequency === "monthly") {
-    const anio = fechaReferencia.getFullYear();
-    const mes = String(fechaReferencia.getMonth() + 1).padStart(2, "0");
-    return `${plantilla.id}_${anio}-${mes}`;
+function fechaVencimientoMensual(plantilla, fechaReferencia = new Date()) {
+  const diaCorte = Number(estado.cutoffDay || 1);
+  const diaVencimiento = Number(plantilla.monthlyDay || 1);
+  
+  let anio = fechaReferencia.getFullYear();
+  let mes = fechaReferencia.getMonth();
+  
+  // 1. Determinar en qué mes inició el ciclo actual
+  if (fechaReferencia.getDate() < diaCorte) {
+     mes -= 1;
+     if (mes < 0) { 
+       mes = 11; 
+       anio -= 1; 
+     }
   }
-  return `${plantilla.id}_${claveFechaCiclo(fechaReferencia)}`;
+  
+  // 2. Determinar en qué mes cae el vencimiento dentro de ESTE ciclo
+  let mesVencimiento = mes;
+  let anioVencimiento = anio;
+  
+  if (diaVencimiento < diaCorte) {
+     mesVencimiento += 1;
+     if (mesVencimiento > 11) { 
+       mesVencimiento = 0; 
+       anioVencimiento += 1; 
+     }
+  }
+  
+  // 3. Ajustar por si el mes no tiene suficientes días (ej. 31 en noviembre)
+  const maxDias = new Date(anioVencimiento, mesVencimiento + 1, 0).getDate();
+  return new Date(anioVencimiento, mesVencimiento, Math.min(diaVencimiento, maxDias));
 }
 
-// Plantillas recurrentes (de gasto o ingreso) que "tocan" hoy según su frecuencia.
+function claveConfirmacionRecurrente(plantilla, fechaReferencia = new Date()) {
+  // Para los mensuales, la clave es la fecha exacta de VENCIMIENTO (única e inamovible durante todo el ciclo)
+  if (plantilla.frequency === "monthly" || plantilla.frequency === "mensual") {
+    const fVenc = fechaVencimientoMensual(plantilla, fechaReferencia);
+    const yyyy = fVenc.getFullYear();
+    const mm = String(fVenc.getMonth() + 1).padStart(2, '0');
+    const dd = String(fVenc.getDate()).padStart(2, '0');
+    return `${plantilla.id}_${yyyy}-${mm}-${dd}`;
+  }
+  
+  // Para diarios, semanales o quincenales, la clave es la ocurrencia del día exacto
+  const yyyy = fechaReferencia.getFullYear();
+  const mm = String(fechaReferencia.getMonth() + 1).padStart(2, '0');
+  const dd = String(fechaReferencia.getDate()).padStart(2, '0');
+  return `${plantilla.id}_${yyyy}-${mm}-${dd}`;
+}
+// === FUNCIÓN NUEVA CENTRALIZADA PARA FORMATEAR TEXTO ===
+function formatearFrecuenciaTexto(plantilla) {
+  const freq = plantilla.frequency;
+  if (freq === "daily" || freq === "diario") return "Diario";
+  if (freq === "monthly" || freq === "mensual") return `Mensual (Día ${plantilla.monthlyDay})`;
+  if (freq === "quincenal") return "Quincenal";
+  if (freq === "weekly" || freq === "semanal") {
+    const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    if (Array.isArray(plantilla.weekday)) {
+      return `Semanal (${plantilla.weekday.map(d => dias[d]).join(", ")})`;
+    }
+    return `Semanal (${dias[Number(plantilla.weekday)] || ""})`;
+  }
+  return "Recurrente";
+}
+
 function plantillasRecurrentesDeHoy() {
   const diaSemana = fechaEfectiva().getDay();
   const fechaActual = fechaEfectiva();
   const diaDelMes = fechaActual.getDate();
-  return estado.expenses.filter(item => item.recurring && (
-    item.frequency === "daily"
-    || (item.frequency === "weekly" && Number(item.weekday) === diaSemana)
-    || (item.frequency === "monthly" && Math.min(Number(item.monthlyDay), diasDelMes(fechaActual.getFullYear(), fechaActual.getMonth())) === diaDelMes)
-  ));
+  
+  return estado.expenses.filter(item => {
+    if (!item.recurring) return false;
+    const freq = item.frequency;
+    
+    const fechaCreacion = new Date((item.date || hoyISO()) + "T12:00:00");
+    const inicioDiaCreacion = new Date(fechaCreacion.getFullYear(), fechaCreacion.getMonth(), fechaCreacion.getDate());
+    const inicioHoy = new Date(fechaActual.getFullYear(), fechaActual.getMonth(), fechaActual.getDate());
+    
+    if (inicioHoy < inicioDiaCreacion) return false;
+
+    if (freq === "daily" || freq === "diario") return true;
+    
+    if (freq === "weekly" || freq === "semanal") {
+      if (Array.isArray(item.weekday)) return item.weekday.includes(diaSemana);
+      return Number(item.weekday) === diaSemana;
+    }
+    
+    if (freq === "monthly" || freq === "mensual") {
+      return Math.min(Number(item.monthlyDay || 1), diasDelMes(fechaActual.getFullYear(), fechaActual.getMonth())) === diaDelMes;
+    }
+    
+    if (freq === "quincenal") {
+      const diffTime = Math.abs(fechaActual - fechaCreacion);
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays % 14 === 0;
+    }
+    
+    return false;
+  });
 }
 
-// Recurrentes de hoy que todavía no fueron confirmados, rechazados ni pospuestos.
 function recurrentesPendientes() {
   const confirmaciones = estado.recurringConfirmations || {};
   return plantillasRecurrentesDeHoy().filter(plantilla => {
@@ -48,31 +117,23 @@ function recurrentesPendientes() {
   });
 }
 
-// Todas las plantillas de GASTO recurrente con frecuencia mensual.
 function plantillasRecurrentesMensuales() {
-  return estado.expenses.filter(item => item.recurring && item.recurringType !== "income" && item.frequency === "monthly");
+  return estado.expenses.filter(item => item.recurring && item.recurringType !== "income" && (item.frequency === "monthly" || item.frequency === "mensual"));
 }
 
-// Recurrentes mensuales aún sin confirmar ni rechazar.
 function plantillasRecurrentesMensualesPendientes() {
   const ahora = fechaEfectiva();
-  return plantillasRecurrentesMensuales().filter(plantilla =>
-    estado.recurringConfirmations[claveConfirmacionRecurrente(plantilla, ahora)] !== "yes" &&
-    estado.recurringConfirmations[claveConfirmacionRecurrente(plantilla, ahora)] !== "no"
-  );
+  return plantillasRecurrentesMensuales().filter(plantilla => {
+    if (ahora < fechaVencimientoMensual(plantilla, ahora)) return false;
+    const confirmacion = estado.recurringConfirmations[claveConfirmacionRecurrente(plantilla, ahora)];
+    return confirmacion !== "yes" && confirmacion !== "no";
+  });
 }
 
-// Alias usado por la interfaz para mostrar los recurrentes mensuales pendientes.
 function recurrentesMensualesPendientes() {
   return plantillasRecurrentesMensualesPendientes();
 }
 
-/**
- * Confirma, rechaza o pospone la ocurrencia de hoy de una
- * plantilla recurrente. Si se aprueba un GASTO recurrente, se
- * crea el gasto real del día; si luego se destapa que no era
- * "yes", ese gasto generado se elimina.
- */
 function confirmarRecurrente(idPlantilla, estadoNuevo) {
   const plantilla = estado.expenses.find(item => item.id === idPlantilla);
   if (!plantilla) return;
@@ -83,7 +144,6 @@ function confirmarRecurrente(idPlantilla, estadoNuevo) {
 
   estado.recurringConfirmations[clave] = estadoNuevo;
 
-  // Solo crea el gasto físico si se aprueba y no estaba aprobado previamente
   if (estadoNuevo === "yes" && !yaEstabaAprobado && plantilla.recurringType !== "income") {
     estado.expenses.push({
       id: crypto.randomUUID(),
@@ -92,10 +152,9 @@ function confirmarRecurrente(idPlantilla, estadoNuevo) {
       categoryId: plantilla.categoryId,
       date: claveDeHoy(),
       recurring: false,
-      recurringSourceId: plantilla.id // vínculo con la plantilla que lo generó
+      recurringSourceId: plantilla.id
     });
   } else if (estadoNuevo !== "yes" && yaEstabaAprobado && plantilla.recurringType !== "income") {
-    // Si se pasa de "aprobado" a otro estado, se borra el gasto que se había generado
     const indiceHijo = estado.expenses.findIndex(item => item.recurringSourceId === plantilla.id && item.date === claveDeHoy());
     if (indiceHijo !== -1) estado.expenses.splice(indiceHijo, 1);
   }
@@ -111,7 +170,6 @@ function confirmarRecurrente(idPlantilla, estadoNuevo) {
   );
 }
 
-// Etiqueta y clase CSS a mostrar según el estado actual de un recurrente.
 function obtenerEtiquetaEstadoRecurrente(plantilla) {
   const clave = claveConfirmacionRecurrente(plantilla, fechaEfectiva());
   if (estado.recurringConfirmations[clave] === "yes") return { label: "Confirmado", className: "recurring-status confirmed" };
@@ -119,34 +177,43 @@ function obtenerEtiquetaEstadoRecurrente(plantilla) {
   if (estado.recurringConfirmations[clave] === "deferred") return { label: "Pendiente", className: "recurring-status pending" };
   if (estado.recurringConfirmations[clave] === "overdue") return { label: "Vencido", className: "recurring-status rejected" };
 
-  if (plantilla.frequency !== "monthly") {
+  if (plantilla.frequency !== "monthly" && plantilla.frequency !== "mensual") {
     if (recurrentesPendientes().some(item => item.id === plantilla.id)) return { label: "Esperando", className: "recurring-status pending" };
     return { label: "Sin confirmar", className: "recurring-status pending" };
   }
 
   const ahora = fechaEfectiva();
-  const diaDelMes = Number(plantilla.monthlyDay || 1);
-  const fechaVencimiento = new Date(ahora.getFullYear(), ahora.getMonth(), diaDelMes);
+  const fechaVencimiento = fechaVencimientoMensual(plantilla, ahora);
   const confirmado = Boolean(estado.recurringConfirmations[clave]);
   if (confirmado) return { label: "Confirmado", className: "recurring-status confirmed" };
   if (ahora >= fechaVencimiento) return { label: "Vencido", className: "recurring-status overdue" };
   return { label: "Pendiente", className: "recurring-status pending" };
 }
 
-// Próxima fecha (desde hoy) en la que corresponde una plantilla recurrente.
 function proximaFechaRecurrente(plantilla) {
   const inicio = new Date(fechaEfectiva().getFullYear(), fechaEfectiva().getMonth(), fechaEfectiva().getDate());
+  const freq = plantilla.frequency;
+  
   for (let desplazamiento = 0; desplazamiento <= 370; desplazamiento += 1) {
     const candidata = new Date(inicio.getTime());
     candidata.setDate(inicio.getDate() + desplazamiento);
-    if ((plantilla.frequency === "daily")
-      || (plantilla.frequency === "weekly" && candidata.getDay() === Number(plantilla.weekday))
-      || (plantilla.frequency === "monthly" && candidata.getDate() === Math.min(Number(plantilla.monthlyDay || 1), diasDelMes(candidata.getFullYear(), candidata.getMonth())))) return candidata;
+    
+    if (freq === "daily" || freq === "diario") return candidata;
+    if (freq === "weekly" || freq === "semanal") {
+      if (Array.isArray(plantilla.weekday) && plantilla.weekday.includes(candidata.getDay())) return candidata;
+      if (!Array.isArray(plantilla.weekday) && candidata.getDay() === Number(plantilla.weekday)) return candidata;
+    }
+    if ((freq === "monthly" || freq === "mensual") && candidata.getDate() === Math.min(Number(plantilla.monthlyDay || 1), diasDelMes(candidata.getFullYear(), candidata.getMonth()))) return candidata;
+    if (freq === "quincenal") {
+      const fechaC = new Date((plantilla.date || hoyISO()) + "T00:00:00");
+      const diffTime = Math.abs(candidata - fechaC);
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays % 14 === 0) return candidata;
+    }
   }
   return inicio;
 }
 
-// Actualiza el texto de ayuda del modal "Modificar recurrente" según el alcance elegido.
 function actualizarAyudaEdicionRecurrente() {
   const alcance = document.getElementById("recurring-edit-scope").value;
   document.getElementById("recurring-edit-help").textContent = alcance === "cycle"
@@ -154,36 +221,40 @@ function actualizarAyudaEdicionRecurrente() {
     : "Solo se aplicará a las próximas confirmaciones. Los importes ya registrados no cambiarán.";
 }
 
-// Abre el modal para modificar el importe (y otros datos) de un recurrente.
 function abrirEditorRecurrente(id) {
   recurrenteAEditar = estado.expenses.find(item => item.id === id);
   if (!recurrenteAEditar) return;
   document.getElementById("recurring-edit-title").textContent = `Modificar ${recurrenteAEditar.description}`;
   document.getElementById("recurring-edit-amount").value = recurrenteAEditar.amount;
-  document.getElementById("recurring-edit-weekday").value = String(Number(recurrenteAEditar.weekday ?? 1));
-  document.getElementById("recurring-edit-weekday-label").hidden = recurrenteAEditar.frequency !== "weekly";
+  
+  // En caso de Array, mostramos el primer día (el diseño viejo del HTML no soporta selects múltiples nativos)
+  document.getElementById("recurring-edit-weekday").value = String(Number(Array.isArray(recurrenteAEditar.weekday) ? recurrenteAEditar.weekday[0] : recurrenteAEditar.weekday ?? 1));
+  
+  const freq = recurrenteAEditar.frequency;
+  document.getElementById("recurring-edit-weekday-label").hidden = (freq !== "weekly" && freq !== "semanal");
   document.getElementById("recurring-edit-monthly-day").value = recurrenteAEditar.monthlyDay || "";
-  document.getElementById("recurring-edit-monthly-date-label").hidden = recurrenteAEditar.frequency !== "monthly";
+  document.getElementById("recurring-edit-monthly-date-label").hidden = (freq !== "monthly" && freq !== "mensual");
+  
   document.getElementById("recurring-edit-is-projected").checked = recurrenteAEditar.isProjected !== false;
   document.getElementById("recurring-edit-scope").value = "cycle";
   actualizarAyudaEdicionRecurrente();
   abrirModal("recurring-edit-modal");
 }
 
-// Dibuja el listado completo de recurrentes (vista "Todos los gastos recurrentes").
+var filtroRecurrentesMovil = "expense";
+
 function renderizarTodosLosRecurrentes() {
   const plantillas = estado.expenses.filter(item => item.recurring);
-  document.getElementById("recurring-all-empty").style.display = plantillas.length ? "none" : "block";
+  const esIngreso = filtroRecurrentesMovil === "income";
+  const plantillasVisibles = plantillas.filter(item => esIngreso
+    ? item.recurringType === "income"
+    : item.recurringType !== "income");
+  document.getElementById("recurring-all-empty").style.display = plantillasVisibles.length ? "none" : "block";
+  document.getElementById("recurring-all-empty").textContent = esIngreso ? "No hay ingresos recurrentes." : "No hay gastos recurrentes.";
 
-  document.getElementById("recurring-all-list").innerHTML = plantillas.map(plantilla => {
+  document.getElementById("recurring-all-list").innerHTML = plantillasVisibles.map(plantilla => {
     const categoria = obtenerCategoria(plantilla.categoryId);
-    const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-    const frecuencia = plantilla.frequency === "daily"
-      ? "Diario"
-      : plantilla.frequency === "monthly"
-        ? `Mensual (Día ${plantilla.monthlyDay})`
-        : `Semanal (${dias[Number(plantilla.weekday)]})`;
-
+    const frecuencia = formatearFrecuenciaTexto(plantilla);
     const estadoEtiqueta = obtenerEtiquetaEstadoRecurrente(plantilla);
     const esIngreso = plantilla.recurringType === "income";
 
@@ -223,30 +294,26 @@ function renderizarTodosLosRecurrentes() {
   }).join("");
 }
 
-// Dibuja la lista corta de recurrentes en la barra lateral (máximo 3).
 function renderizarRecurrentesBarraLateral() {
   const plantillas = estado.expenses.filter(item => item.recurring);
   document.getElementById("sidebar-recurring-count").textContent = plantillas.length;
   document.getElementById("sidebar-recurring-empty").hidden = plantillas.length > 0;
   const visibles = plantillas.slice(0, 3);
   document.getElementById("sidebar-recurring-more").hidden = false;
+  
   document.getElementById("sidebar-recurring-list").innerHTML = visibles.map(plantilla => {
     const categoria = obtenerCategoria(plantilla.categoryId);
-    const frecuencia = plantilla.frequency === "daily"
-      ? "Diario"
-      : plantilla.frequency === "monthly"
-        ? `Mensual · día ${plantilla.monthlyDay}`
-        : `Cada ${["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][Number(plantilla.weekday)] || "semana"}`;
+    const frecuencia = formatearFrecuenciaTexto(plantilla);
+    
     return `<div class="sidebar-recurring-item"><button class="sidebar-recurring-main" data-edit-recurring="${plantilla.id}"><span class="sidebar-recurring-dot" style="background:${categoria.color}"></span><span class="sidebar-recurring-info"><strong>${escaparHtml(plantilla.description)}</strong><small>${frecuencia} · ${formatearMoneda(plantilla.amount)}</small></span><span class="sidebar-edit-icon">✎</span></button><button class="sidebar-recurring-delete" data-delete-recurring="${plantilla.id}" title="Eliminar recurrente" aria-label="Eliminar recurrente">×</button></div>`;
   }).join("");
 }
 
-// Widget de recurrentes que aparece arriba de la vista "Gastos" (máximo 3, solo gastos, no ingresos).
 function renderizarWidgetGastosRecurrentes() {
   const widget = document.getElementById("expenses-recurring-widget");
   if (!widget) return;
 
-  const plantillas = estado.expenses.filter(item => item.recurring && item.recurringType !== "income");
+  const plantillas = estado.expenses.filter(item => item.recurring);
 
   if (plantillas.length === 0) {
     widget.hidden = true;
@@ -254,30 +321,12 @@ function renderizarWidgetGastosRecurrentes() {
   }
 
   widget.hidden = false;
-  const visibles = plantillas.slice(0, 3);
-
-  document.getElementById("expenses-recurring-list").innerHTML = visibles.map(plantilla => {
-    const categoria = obtenerCategoria(plantilla.categoryId);
-    const frecuencia = plantilla.frequency === "daily"
-      ? "Diario"
-      : plantilla.frequency === "monthly"
-        ? `Mensual · día ${plantilla.monthlyDay}`
-        : `Cada ${["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][Number(plantilla.weekday)] || "semana"}`;
-
-    return `<div class="sidebar-recurring-item">
-      <button class="sidebar-recurring-main" data-edit-recurring="${plantilla.id}">
-        <span class="sidebar-recurring-dot" style="background:${categoria.color}"></span>
-        <span class="sidebar-recurring-info">
-          <strong>${escaparHtml(plantilla.description)}</strong>
-          <small>${frecuencia} · ${formatearMoneda(plantilla.amount)}</small>
-        </span>
-        <span class="sidebar-edit-icon" title="Editar recurrente">✎</span>
-      </button>
-    </div>`;
-  }).join("");
+  const gastos = plantillas.filter(item => item.recurringType !== "income").length;
+  const ingresos = plantillas.filter(item => item.recurringType === "income").length;
+  document.getElementById("expenses-recurring-list").innerHTML =
+    `<div class="recurring-count-summary"><strong>${gastos} ${gastos === 1 ? "gasto recurrente" : "gastos recurrentes"}</strong><span> · </span><strong>${ingresos} ${ingresos === 1 ? "ingreso recurrente" : "ingresos recurrentes"}</strong></div><button type="button" class="recurring-widget-link" data-view-link="recurring-all">Ver todos los recurrentes <span>→</span></button>`;
 }
 
-// Banner con los movimientos recurrentes de hoy que todavía no fueron confirmados.
 function renderizarConfirmacionRecurrentes() {
   const pendientes = recurrentesPendientes();
   const mensualesPendientes = recurrentesMensualesPendientes();
@@ -301,16 +350,21 @@ function renderizarConfirmacionRecurrentes() {
     return;
   }
 
+  const esAndroid = /Android/i.test(navigator.userAgent);
+  const pendientesVisibles = esAndroid ? todosLosPendientes.slice(0, 1) : todosLosPendientes;
+  const restantes = todosLosPendientes.length - pendientesVisibles.length;
   barra.hidden = false;
-  document.getElementById("recurring-items").innerHTML = todosLosPendientes.map(plantilla => {
+  document.getElementById("recurring-items").innerHTML = pendientesVisibles.map(plantilla => {
     const categoria = obtenerCategoria(plantilla.categoryId);
-    const frecuencia = plantilla.frequency === "daily" ? "Diario" : plantilla.frequency === "weekly" ? "Semanal" : "Mensual";
+    const frecuencia = formatearFrecuenciaTexto(plantilla);
     const esIngreso = plantilla.recurringType === "income";
+    
     return `<div class="recurring-item"><div class="recurring-item-icon" style="background:${categoria.color}20;color:${categoria.color}">${esIngreso ? "↗" : categoria.icon}</div><div class="recurring-item-info"><strong>${escaparHtml(plantilla.description)}</strong><span>${esIngreso ? "Ingreso" : escaparHtml(categoria.name)} · ${frecuencia}</span></div><b>${formatearMoneda(plantilla.amount)}</b><button class="confirm-button yes" data-confirm-recurring="${plantilla.id}" title="Validar">✓</button><button class="confirm-button no" data-reject-recurring="${plantilla.id}" title="Rechazar">×</button><button class="confirm-button defer" data-defer-recurring="${plantilla.id}" title="Desplazar / dejar pendiente">…</button></div>`;
-  }).join("");
+  }).join("") + (esAndroid && restantes > 0
+    ? `<span class="recurring-more-indicator" aria-label="Hay ${restantes} recurrentes más para confirmar"><span class="recurring-more-dots">•••</span><small>Hay ${restantes} ${restantes === 1 ? "más" : "más"} para confirmar</small></span>`
+    : "");
 }
 
-// Banner que avisa cuando un ingreso recurrente se aprobó hoy.
 function renderizarAvisoIngresoAprobado() {
   const banner = document.getElementById("income-success-banner");
   const ingreso = ingresoRecurrenteAprobado();

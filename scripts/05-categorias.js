@@ -95,13 +95,14 @@ function abrirEditorDeCategoria(id = null) {
 
 // Dibuja la grilla de categorías con la cantidad de gastos de cada una.
 function renderizarCategorias() {
-  const confirmados = estado.expenses.reduce((resultado, item) => { if (!item.recurring) resultado[item.categoryId] = (resultado[item.categoryId] || 0) + 1; return resultado; }, {});
-  const recurrentes = estado.expenses.reduce((resultado, item) => { if (item.recurring) resultado[item.categoryId] = (resultado[item.categoryId] || 0) + 1; return resultado; }, {});
+  const confirmados = estado.expenses.reduce((resultado, item) => { if (!item.recurring && !item.recurringSourceId) resultado[item.categoryId] = (resultado[item.categoryId] || 0) + 1; return resultado; }, {});
+  const recurrentes = estado.expenses.reduce((resultado, item) => { if (item.recurring && item.recurringType !== "income") resultado[item.categoryId] = (resultado[item.categoryId] || 0) + 1; return resultado; }, {});
 
   document.getElementById("category-grid").innerHTML = estado.categories.map((categoria, indice) => {
     const cantidadConfirmados = confirmados[categoria.id] || 0;
     const cantidadRecurrentes = recurrentes[categoria.id] || 0;
-    const resumen = `${cantidadConfirmados} ${cantidadConfirmados === 1 ? "gasto confirmado" : "gastos confirmados"}${cantidadRecurrentes ? ` · ${cantidadRecurrentes} recurrente${cantidadRecurrentes === 1 ? "" : "s"}` : ""}`;
-    return `<article class="category-card"><div class="category-card-actions"><button class="category-menu" data-edit-category="${categoria.id}" title="Editar categoría">✎</button><button class="category-menu" data-delete-category="${categoria.id}" title="Eliminar categoría">×</button></div><div class="category-icon" style="color:${categoria.color};background:${categoria.color}20">${categoria.icon || iconos[indice % iconos.length]}</div><strong>${escaparHtml(categoria.name)}</strong><span>${resumen}</span></article>`;
+    const resumenUnicos = `${cantidadConfirmados} ${cantidadConfirmados === 1 ? "gasto único" : "gastos únicos"}`;
+    const resumenRecurrentes = `${cantidadRecurrentes} ${cantidadRecurrentes === 1 ? "gasto recurrente" : "gastos recurrentes"}`;
+    return `<article class="category-card" data-category-expenses="${categoria.id}" role="link" tabindex="0" aria-label="Ver gastos de ${escaparHtml(categoria.name)}"><div class="category-card-actions"><button class="category-menu" data-edit-category="${categoria.id}" title="Editar categoría">✎</button><button class="category-menu" data-delete-category="${categoria.id}" title="Eliminar categoría">×</button></div><div class="category-icon" style="color:${categoria.color};background:${categoria.color}20">${categoria.icon || iconos[indice % iconos.length]}</div><strong>${escaparHtml(categoria.name)}</strong><span class="category-summary">${resumenUnicos}</span><span class="category-recurring-summary">${resumenRecurrentes}</span></article>`;
   }).join("");
 }

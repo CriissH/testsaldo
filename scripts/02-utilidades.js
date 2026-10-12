@@ -11,15 +11,15 @@
 
 // Formatea un número como pesos argentinos, sin decimales. Ej: $125.000
 var formatearMoneda = valor =>
-  new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(valor || 0);
+  new Intl.NumberFormat(idiomaLocale(), { style: "currency", currency: "ARS", currencyDisplay: "narrowSymbol", maximumFractionDigits: 0 }).format(valor || 0);
 
 // Igual que formatearMoneda, pero en formato compacto. Ej: $1,2 M
 var formatearMonedaCompacta = valor =>
-  new Intl.NumberFormat("es-AR", { notation: "compact", maximumFractionDigits: 1, style: "currency", currency: "ARS" }).format(Number(valor) || 0);
+  new Intl.NumberFormat(idiomaLocale(), { notation: "compact", maximumFractionDigits: 1, style: "currency", currency: "ARS", currencyDisplay: "narrowSymbol" }).format(Number(valor) || 0);
 
 // Convierte una fecha "AAAA-MM-DD" en un texto corto. Ej: "05 ene"
 var formatearFecha = valor =>
-  new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "short" }).format(new Date(`${valor}T12:00:00`)).replace(".", "");
+  new Intl.DateTimeFormat(idiomaLocale(), { day: "2-digit", month: "short" }).format(new Date(`${valor}T12:00:00`)).replace(/\./g, "");
 
 /**
  * Devuelve la fecha que la app debe considerar "hoy".
